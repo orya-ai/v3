@@ -17,11 +17,12 @@ static const _navItems = [
   (icon: Icons.explore, label: 'Discovery'),  // Changed from 'Discover' to 'Discovery'
 ];
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black,
-      padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 14),
+@override
+Widget build(BuildContext context) {
+  return Container(
+    color: Colors.black,
+    padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8),
+    child: SafeArea(  // Add SafeArea to respect device notches
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: List.generate(
@@ -33,8 +34,9 @@ static const _navItems = [
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildNavItem(IconData icon, String label, int index) {
     final isSelected = index == currentIndex;
