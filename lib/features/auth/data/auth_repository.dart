@@ -52,9 +52,20 @@ class AuthRepository {
     }
   }
 
-  // Sign Out
+  /// Signs out the current user from Firebase Authentication.
+  /// 
+  /// Throws an [AuthException] if the sign out process fails.
   Future<void> signOut() async {
-    await _firebaseAuth.signOut();
+    try {
+      await _firebaseAuth.signOut();
+      debugPrint('User signed out successfully');
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Error signing out: ${e.message}');
+      throw _handleAuthException(e);
+    } catch (e) {
+      debugPrint('Unexpected error during sign out: $e');
+      rethrow;
+    }
   }
 
   // Handle auth exceptions

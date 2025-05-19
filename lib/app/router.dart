@@ -26,16 +26,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAuthRoute = state.matchedLocation == '/login' || 
                          state.matchedLocation == '/signup';
       
+      debugPrint('Router - Auth State Changed:');
+      debugPrint('- Is Logged In: $isLoggedIn');
+      debugPrint('- Current Route: ${state.matchedLocation}');
+      debugPrint('- Is Auth Route: $isAuthRoute');
+      
       // If user is not logged in and trying to access protected route
       if (!isLoggedIn && !isAuthRoute) {
+        debugPrint('Redirecting to /login - User not authenticated');
         return '/login';
       }
       
       // If user is logged in and trying to access auth route
       if (isLoggedIn && isAuthRoute) {
+        debugPrint('Redirecting to / - User already authenticated');
         return '/';
       }
       
+      debugPrint('No redirection needed');
       // No redirection needed
       return null;
     },

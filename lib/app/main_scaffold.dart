@@ -66,21 +66,62 @@ class MainScaffold extends ConsumerWidget {
               ),
             ),
             // Logout button
-            IconButton(
-              icon: const Icon(Icons.logout),
-              tooltip: 'Logout',
-              onPressed: () async {
-                try {
-                  await ref.read(authControllerProvider.notifier).signOut();
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error signing out: $e')),
-                    );
-                  }
-                }
-              },
-            ),
+            if (authState.isLoading)
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else
+              // Logout button with loading state and proper error handling
+              Consumer(
+                builder: (context, ref, _) {
+                  final isLoading = ref.watch(authControllerProvider).isLoading;
+                  
+                  return IconButton(
+                    icon: isLoading 
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Icon(Icons.logout),
+                    tooltip: 'Logout',
+                    onPressed: isLoading 
+                        ? null 
+                        : () async {
+                            try {
+                              // Reset the current route to dashboard
+                              ref.read(currentRouteProvider.notifier).state = AppRoute.dashboard;
+                              
+                              // Trigger sign out
+                              await ref.read(authControllerProvider.notifier).signOut();
+                              
+                              // Navigate to login screen if still mounted
+                              if (context.mounted) {
+                                context.go('/login');
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error signing out: ${e.toString()}'),
+                                    backgroundColor: Colors.red,
+                                    duration: const Duration(seconds: 4),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                  );
+                },
+              ),
           ],
         ],
       ),

@@ -88,16 +88,29 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
-  // Sign out
+  /// Signs out the current user and updates the auth state accordingly.
+  ///
+  /// This method will:
+  /// 1. Set loading state to true
+  /// 2. Call the repository to sign out
+  /// 3. Reset the user to null on success
+  /// 4. Handle any errors that occur during sign out
+  /// 5. Ensure loading state is always reset
   Future<void> signOut() async {
     try {
       state = state.copyWith(isLoading: true, error: null);
       await _authRepository.signOut();
+      state = state.copyWith(user: null);
+    } on FirebaseAuthException catch (e) {
+      state = state.copyWith(error: e.message ?? 'An error occurred during sign out');
+      rethrow;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: 'An unexpected error occurred');
       rethrow;
     } finally {
-      state = state.copyWith(isLoading: false);
+      if (state.isLoading) {
+        state = state.copyWith(isLoading: false);
+      }
     }
   }
 
