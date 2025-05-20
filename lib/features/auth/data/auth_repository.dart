@@ -1,28 +1,27 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../social/domain/models/app_user.dart';
 
 class AuthRepository {
   final FirebaseAuth _firebaseAuth;
+  final FirebaseFirestore _firestore;
 
-  // Private constructor
-  AuthRepository._(this._firebaseAuth);
+  AuthRepository._(this._firebaseAuth, this._firestore);
 
-  // Factory constructor for production use
   factory AuthRepository() {
-    return AuthRepository._(FirebaseAuth.instance);
+    return AuthRepository._(FirebaseAuth.instance, FirebaseFirestore.instance);
   }
 
-  // For testing with mock FirebaseAuth
   @visibleForTesting
-  AuthRepository.forTesting(FirebaseAuth firebaseAuth) : _firebaseAuth = firebaseAuth;
+  AuthRepository.forTesting(FirebaseAuth firebaseAuth, FirebaseFirestore firestore)
+      : _firebaseAuth = firebaseAuth,
+        _firestore = firestore;
 
-  // Auth state changes stream
   Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
   
-  // Get current user
   User? get currentUser => _firebaseAuth.currentUser;
 
-  // Email & Password Sign In
   Future<UserCredential> signInWithEmailAndPassword({
     required String email,
     required String password,
@@ -37,38 +36,77 @@ class AuthRepository {
     }
   }
 
-  // Email & Password Sign Up
   Future<UserCredential> signUpWithEmailAndPassword({
     required String email,
     required String password,
   }) async {
     try {
-      return await _firebaseAuth.createUserWithEmailAndPassword(
+      final userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
+
+      final user = userCredential.user;
+      if (user != null) {
+        String displayName;
+        if (user.email != null && user.email!.contains('@')) {
+          displayName = user.email!.split('@')[0];
+          if (displayName.isEmpty) {
+            displayName = 'User'; 
+          }
+        } else if (user.email != null && user.email!.isNotEmpty) {
+          displayName = user.email!;
+        } else {
+          displayName = 'User'; 
+        }
+
+        final appUser = AppUser(
+          uid: user.uid,
+          email: user.email ?? '', 
+          displayName: displayName,
+        );
+
+        if (kDebugMode) {
+            print('Attempting to save user to Firestore: ${appUser.toJson()}');
+        }
+
+        await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .set(appUser.toJson());
+        
+        if (kDebugMode) {
+            print('User successfully saved to Firestore with UID: ${user.uid}');
+        }
+      }
+
+      return userCredential;
     } on FirebaseAuthException catch (e) {
+      if (kDebugMode) {
+        print('FirebaseAuthException during sign up: ${e.code} - ${e.message}');
+      }
       throw _handleAuthException(e);
+    } catch (e) {
+      if (kDebugMode) {
+        print('An unexpected error occurred during sign up or Firestore save: $e');
+      }
+      rethrow; 
     }
   }
 
-  /// Signs out the current user from Firebase Authentication.
-  /// 
-  /// Throws an [AuthException] if the sign out process fails.
   Future<void> signOut() async {
     try {
       await _firebaseAuth.signOut();
-      debugPrint('User signed out successfully');
+      if (kDebugMode) debugPrint('User signed out successfully');
     } on FirebaseAuthException catch (e) {
-      debugPrint('Error signing out: ${e.message}');
+      if (kDebugMode) debugPrint('Error signing out: ${e.message}');
       throw _handleAuthException(e);
     } catch (e) {
-      debugPrint('Unexpected error during sign out: $e');
+      if (kDebugMode) debugPrint('Unexpected error during sign out: $e');
       rethrow;
     }
   }
 
-  // Handle auth exceptions
   AuthException _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {
       case 'user-not-found':
@@ -91,7 +129,6 @@ class AuthRepository {
   }
 }
 
-// Custom exception class for auth errors
 class AuthException implements Exception {
   final String message;
   const AuthException(this.message);

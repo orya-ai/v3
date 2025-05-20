@@ -13,7 +13,7 @@ final userSearchProvider = StateNotifierProvider<UserSearchNotifier, AsyncValue<
 class UserSearchNotifier extends StateNotifier<AsyncValue<List<AppUser>>> {
   final UserSearchRepository _repository;
   
-  UserSearchNotifier(this._repository) : super(const AsyncValue.loading());
+  UserSearchNotifier(this._repository) : super(const AsyncValue.data([]));
   
   Future<void> searchUsers(String query) async {
     if (query.isEmpty) {
