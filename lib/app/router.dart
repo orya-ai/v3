@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../features/auth/presentation/controllers/auth_controller.dart';
+import '../features/auth/domain/auth_state_notifier.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/signup_screen.dart';
 import 'main_scaffold.dart';
@@ -9,38 +9,50 @@ import '../features/dashboard/presentation/dashboard_page.dart';
 import '../features/social/presentation/social_page.dart';
 import '../features/activities/presentation/activities_page.dart';
 import '../features/discovery/presentation/discovery_page.dart';
+import 'router/routes.dart';
 
 // Create a navigator key for the root navigator
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 // Router provider that depends on auth state
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authControllerProvider);
+  final authState = ref.watch(authStateProvider);
   
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     debugLogDiagnostics: true,
-    initialLocation: '/login',
+    initialLocation: AppRoutes.login,
     redirect: (BuildContext? context, GoRouterState state) {
-      final isLoggedIn = authState.user != null;
-      final isAuthRoute = state.matchedLocation == '/login' || 
-                         state.matchedLocation == '/signup';
+      final isLoggedIn = authState.isAuthenticated;
+      final isInitialized = authState.isInitialized;
+      final currentStatus = authState.status;
+
+      final isAuthRoute = state.matchedLocation == AppRoutes.login || 
+                         state.matchedLocation == AppRoutes.signup;
       
       debugPrint('Router - Auth State Changed:');
-      debugPrint('- Is Logged In: $isLoggedIn');
+      debugPrint('- Is Initialized: $isInitialized');
+      debugPrint('- Status: $currentStatus');
+      debugPrint('- Is Logged In (isAuthenticated): $isLoggedIn');
       debugPrint('- Current Route: ${state.matchedLocation}');
       debugPrint('- Is Auth Route: $isAuthRoute');
+
+      if (!isInitialized) {
+        debugPrint('Router redirect: Auth not initialized yet. No redirection.');
+        return null; // Don't redirect until auth state is initialized
+      }
       
       // If user is not logged in and trying to access protected route
       if (!isLoggedIn && !isAuthRoute) {
-        debugPrint('Redirecting to /login - User not authenticated');
-        return '/login';
+        debugPrint('Redirecting to ${AppRoutes.login} - User not authenticated');
+        return AppRoutes.login;
       }
       
-      // If user is logged in and trying to access auth route
+      // If user is logged in and trying to access auth route (login/signup)
       if (isLoggedIn && isAuthRoute) {
-        debugPrint('Redirecting to / - User already authenticated');
-        return '/';
+        debugPrint('Redirecting to ${AppRoutes.dashboard} - User already authenticated');
+        // Redirect to dashboard or a default authenticated route
+        return AppRoutes.dashboard;
       }
       
       debugPrint('No redirection needed');
@@ -50,13 +62,13 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       // Public routes
       GoRoute(
-        path: '/login',
+        path: AppRoutes.login,
         pageBuilder: (context, state) => const MaterialPage(
           child: LoginScreen(),
         ),
       ),
       GoRoute(
-        path: '/signup',
+        path: AppRoutes.signup,
         pageBuilder: (context, state) => const MaterialPage(
           child: SignupScreen(),
         ),
@@ -69,29 +81,29 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
         routes: [
           GoRoute(
-            path: '/',
-            redirect: (_, __) => '/dashboard',
+            path: '/', 
+            redirect: (_, __) => AppRoutes.dashboard, 
           ),
           GoRoute(
-            path: '/dashboard',
+            path: AppRoutes.dashboard, 
             pageBuilder: (_, state) => const MaterialPage(
               child: DashboardPage(),
             ),
           ),
           GoRoute(
-            path: '/social',
+            path: AppRoutes.social, 
             pageBuilder: (_, state) => const MaterialPage(
               child: SocialPage(),
             ),
           ),
           GoRoute(
-            path: '/activities',
+            path: AppRoutes.activities, 
             pageBuilder: (_, state) => const MaterialPage(
               child: ActivitiesPage(),
             ),
           ),
           GoRoute(
-            path: '/discovery',
+            path: AppRoutes.discovery, 
             pageBuilder: (_, state) => const MaterialPage(
               child: DiscoveryPage(),
             ),
@@ -102,6 +114,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
+/* 
 // For backward compatibility
 final router = GoRouter(
   debugLogDiagnostics: true,
@@ -139,3 +152,4 @@ final router = GoRouter(
     ),
   ],
 );
+*/
