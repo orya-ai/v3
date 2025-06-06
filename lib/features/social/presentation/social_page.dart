@@ -72,15 +72,19 @@ class _SocialPageState extends ConsumerState<SocialPage> with SingleTickerProvid
         ),
       ),
 
-      /*
+      
       body: TabBarView(
         controller: _tabController,
         children: const [
+
+          
           // Friends tab
           FriendsListScreen(),
           
           // Requests tab
           FriendRequestsScreen(),
+
+          
           
           // Search tab (existing functionality)
           Column(
@@ -104,7 +108,7 @@ class _SocialPageState extends ConsumerState<SocialPage> with SingleTickerProvid
         ],
       ),
 
-      */
+      
     );
   }
 }

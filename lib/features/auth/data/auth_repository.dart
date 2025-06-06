@@ -62,8 +62,10 @@ class AuthRepository {
 
         final appUser = AppUser(
           uid: user.uid,
-          email: user.email ?? '', 
+          email: user.email ?? '',
           displayName: displayName,
+          emailLowercase: (user.email ?? '').toLowerCase(),
+          displayNameLowercase: displayName.toLowerCase(),
         );
 
         if (kDebugMode) {
