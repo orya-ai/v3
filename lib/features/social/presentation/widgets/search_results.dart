@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/app_user.dart';
 import '../../providers/user_search_provider.dart';
+import '../../providers/friendship_providers.dart';
 
 class SearchResults extends ConsumerWidget {
   const SearchResults({super.key});
@@ -32,7 +33,7 @@ class SearchResults extends ConsumerWidget {
   }
 }
 
-class UserCard extends StatelessWidget {
+class UserCard extends ConsumerWidget {
   final AppUser user;
 
   const UserCard({
@@ -41,7 +42,7 @@ class UserCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ListTile(
@@ -56,11 +57,17 @@ class UserCard extends StatelessWidget {
         title: Text(user.displayName),
         subtitle: Text(user.email),
         trailing: ElevatedButton(
-          onPressed: () {
-            // TODO: Implement add friend functionality
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Friend request sent to ${user.displayName}')),
-            );
+          onPressed: () async {
+            try {
+              await ref.read(friendshipRepositoryProvider).sendFriendRequest(user.uid);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Friend request sent to ${user.displayName}')),
+              );
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Could not send friend request: $e')),
+              );
+            }
           },
           child: const Text('Add Friend'),
         ),

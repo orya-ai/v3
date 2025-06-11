@@ -12,8 +12,29 @@ service cloud.firestore {
     // Make sure to write security rules for your app before that time, or else
     // all client requests to your Firestore database will be denied until you Update
     // your rules
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2025, 6, 9);
+    // User profiles and social subcollections
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+
+      // Sent friend requests (only the user can write)
+      match /friend_requests_sent/{recipientId} {
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow delete: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Received friend requests (only the recipient can delete, but anyone can create for sending)
+      match /friend_requests_received/{senderId} {
+        allow create: if request.auth != null;
+        allow delete: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Friends subcollection (only the user can write/read)
+      match /friends/{friendId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
 }

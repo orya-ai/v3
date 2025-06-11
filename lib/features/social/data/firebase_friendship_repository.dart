@@ -39,42 +39,77 @@ class FirebaseFriendshipRepository implements FriendshipRepository {
 
   @override
   Future<void> sendFriendRequest(String recipientId) async {
-    final currentUser = await _userDoc(_currentUserId).get();
-    if (!currentUser.exists) {
-      throw Exception('Current user profile not found');
+    try {
+      print('🔍 [sendFriendRequest] Starting friend request from $_currentUserId to $recipientId');
+      
+      // 1. Validate current user
+      final currentUserDoc = await _userDoc(_currentUserId).get();
+      if (!currentUserDoc.exists) {
+        final error = 'Current user profile not found';
+        print('❌ [sendFriendRequest] $error');
+        throw Exception(error);
+      }
+      final currentUserData = currentUserDoc.data()!;
+      print('✅ [sendFriendRequest] Current user found: ${currentUserData['displayName']}');
+
+      // 2. Validate recipient
+      final recipientDoc = await _userDoc(recipientId).get();
+      if (!recipientDoc.exists) {
+        final error = 'Recipient user not found';
+        print('❌ [sendFriendRequest] $error');
+        throw Exception(error);
+      }
+      print('✅ [sendFriendRequest] Recipient found: ${recipientDoc.data()?['displayName']}');
+
+      // 3. Check if request already exists
+      final existingRequest = await _friendRequestsSentCollection(_currentUserId)
+          .doc(recipientId)
+          .get();
+      if (existingRequest.exists) {
+        final error = 'Friend request already sent';
+        print('⚠️ [sendFriendRequest] $error');
+        throw Exception(error);
+      }
+
+      // 4. Prepare batch
+      final requestId = const Uuid().v4();
+      final timestamp = DateTime.now();
+      final batch = _firestore.batch();
+
+      // 5. Add to sender's outgoing requests
+      final sentRequestRef = _friendRequestsSentCollection(_currentUserId).doc(recipientId);
+      final sentRequestData = {
+        'id': requestId,
+        'recipientId': recipientId,
+        'status': FriendRequestStatus.pending.name,
+        'timestamp': Timestamp.fromDate(timestamp),
+      };
+      batch.set(sentRequestRef, sentRequestData);
+      print('📤 [sendFriendRequest] Prepared sent request: ${sentRequestRef.path}');
+
+      // 6. Add to recipient's incoming requests
+      final receivedRequestRef = _friendRequestsReceivedCollection(recipientId).doc(_currentUserId);
+      final receivedRequestData = {
+        'id': requestId,
+        'senderId': _currentUserId,
+        'senderDisplayName': currentUserData['displayName'] ?? 'Unknown User',
+        'senderPhotoUrl': currentUserData['photoUrl'],
+        'status': FriendRequestStatus.pending.name,
+        'timestamp': Timestamp.fromDate(timestamp),
+      };
+      batch.set(receivedRequestRef, receivedRequestData, SetOptions(merge: true));
+      print('📥 [sendFriendRequest] Prepared received request: ${receivedRequestRef.path}');
+
+      // 7. Commit batch
+      print('🔄 [sendFriendRequest] Committing batch...');
+      await batch.commit();
+      print('✅ [sendFriendRequest] Batch committed successfully');
+
+    } catch (e, stack) {
+      print('❌ [sendFriendRequest] Error: $e');
+      print('Stack trace: $stack');
+      rethrow; // Re-throw to show error in UI
     }
-
-    final recipientUser = await _userDoc(recipientId).get();
-    if (!recipientUser.exists) {
-      throw Exception('Recipient user not found');
-    }
-
-    final currentUserData = currentUser.data()!;
-    final requestId = const Uuid().v4();
-    final timestamp = DateTime.now();
-
-    // Create a batch to ensure both operations succeed or fail together
-    final batch = _firestore.batch();
-
-    // Add to sender's outgoing requests
-    batch.set(_friendRequestsSentCollection(_currentUserId).doc(recipientId), {
-      'id': requestId,
-      'recipientId': recipientId,
-      'status': FriendRequestStatus.pending.name,
-      'timestamp': Timestamp.fromDate(timestamp),
-    });
-
-    // Add to recipient's incoming requests with sender details
-    batch.set(_friendRequestsReceivedCollection(recipientId).doc(_currentUserId), {
-      'id': requestId,
-      'senderId': _currentUserId,
-      'senderDisplayName': currentUserData['displayName'] ?? 'Unknown User',
-      'senderPhotoUrl': currentUserData['photoUrl'],
-      'status': FriendRequestStatus.pending.name,
-      'timestamp': Timestamp.fromDate(timestamp),
-    });
-
-    await batch.commit();
   }
 
   @override

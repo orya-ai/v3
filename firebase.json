@@ -1,65 +1,23 @@
 {
+  "functions": {
+    "source": "functions"
+  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
-  "storage": {
-    "rules": "storage.rules"
-  },
-  "flutter": {
-    "platforms": {
-      "ios": {
-        "default": {
-          "projectId": "orya-v3",
-          "appId": "1:190918956616:ios:e1cfbd65fe5eb1fa46aa7d",
-          "uploadDebugSymbols": false,
-          "fileOutput": "ios/Runner/GoogleService-Info.plist"
-        }
-      },
-      "macos": {
-        "default": {
-          "projectId": "orya-v3",
-          "appId": "1:190918956616:ios:e1cfbd65fe5eb1fa46aa7d",
-          "uploadDebugSymbols": false,
-          "fileOutput": "macos/Runner/GoogleService-Info.plist"
-        }
-      },
-      "dart": {
-        "lib/firebase_options.dart": {
-          "projectId": "orya-v3",
-          "configurations": {
-            "android": "1:190918956616:android:8d5d540f2c66ff7b46aa7d",
-            "ios": "1:190918956616:ios:e1cfbd65fe5eb1fa46aa7d",
-            "macos": "1:190918956616:ios:e1cfbd65fe5eb1fa46aa7d",
-            "web": "1:190918956616:web:c7cc92d08f8cde0146aa7d",
-            "windows": "1:190918956616:web:4b1b2b0f3b2bc0ed46aa7d"
-          }
-        }
-      },
-      "android": {
-        "default": {
-          "projectId": "orya-v3",
-          "appId": "1:190918956616:android:8d5d540f2c66ff7b46aa7d",
-          "fileOutput": "android/app/google-services.json"
-        }
-      }
-    }
-  },
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local"
-      ],
-      "predeploy": [
-        "npm --prefix \"$RESOURCE_DIR\" run lint",
-        "npm --prefix \"$RESOURCE_DIR\" run build"
-      ]
-    }
-  ]
+  "emulators": {
+    "functions": {
+      "port": 5002,
+      "host": "0.0.0.0"
+    },
+    "firestore": {
+      "port": 8081
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4002
+    },
+    "singleProjectMode": true
+  }
 }

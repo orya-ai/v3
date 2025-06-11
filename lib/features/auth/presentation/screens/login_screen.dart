@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../app/router.dart';
+import '../../../../app/router/router.dart';
 import '../controllers/auth_controller.dart';
 import 'signup_screen.dart';
 

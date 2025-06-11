@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../features/auth/domain/auth_state_notifier.dart';
 import 'custom_bottom_nav.dart';
-import 'router.dart';
+import 'router/router.dart';
 import 'router/routes.dart'; // Import AppRoutes directly
 
 // Enum for route names
