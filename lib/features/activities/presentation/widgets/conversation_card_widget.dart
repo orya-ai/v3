@@ -1,20 +1,38 @@
 import 'package:flutter/material.dart';
+import '../../data/models/conversation_card_item.dart';
 
 class ConversationCardWidget extends StatelessWidget {
-  final String questionText;
+  final ConversationCardItem cardItem;
+  final Offset position;
+  final double angle;
+  final double scale;
 
   const ConversationCardWidget({
     super.key,
-    required this.questionText,
+    required this.cardItem,
+    this.position = Offset.zero,
+    this.angle = 0,
+    this.scale = 1.0,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Approximate dimensions for a card-like feel on a typical phone screen
-    // These can be adjusted based on testing and desired look
+    return Transform.translate(
+      offset: position,
+      child: Transform.rotate(
+        angle: angle,
+        child: Transform.scale(
+          scale: scale,
+          child: _buildCardContent(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardContent(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final cardWidth = screenWidth * 0.85; // Card takes up 85% of screen width
-    final cardHeight = cardWidth * (3.5 / 2.5); // Standard playing card aspect ratio (approx)
+    final cardWidth = screenWidth * 0.85;
+    final cardHeight = cardWidth * (3.5 / 2.5);
 
     return Container(
       width: cardWidth,
@@ -28,7 +46,7 @@ class ConversationCardWidget extends StatelessWidget {
             color: Colors.black.withOpacity(0.15),
             spreadRadius: 1,
             blurRadius: 8,
-            offset: const Offset(0, 4), // changes position of shadow
+            offset: const Offset(0, 4),
           ),
         ],
         border: Border.all(
@@ -38,10 +56,10 @@ class ConversationCardWidget extends StatelessWidget {
       ),
       child: Center(
         child: Text(
-          questionText,
+          cardItem.question,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 20.0, // Adjust as needed
+            fontSize: 20.0,
             fontWeight: FontWeight.w500,
             color: Colors.black87,
           ),

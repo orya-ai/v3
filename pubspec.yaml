@@ -46,6 +46,7 @@ dependencies:
   go_router: ^12.1.1
   badges: ^3.1.2
   uuid: ^4.5.1
+  collection: ^1.18.0
   
   # Local packages
   features:
