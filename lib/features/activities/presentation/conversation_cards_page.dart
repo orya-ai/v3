@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui'; // For lerpDouble and Offset.lerp
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart'; // Import for HapticFeedback
@@ -117,37 +118,78 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
   List<Widget> _buildCardStack(BuildContext context, CardStackState cardStackState) {
     final cards = <Widget>[];
     final screenWidth = MediaQuery.of(context).size.width;
+    final cardItems = cardStackState.cardItems;
+    final topIndex = cardStackState.currentCardIndex;
 
-    // Only render the top two cards for performance
-    final renderCount = (cardStackState.cardItems.length - cardStackState.currentCardIndex).clamp(0, 2);
+    const double cardVerticalPeekingOffset = 8.0;
+    const double cardScaleDecrement = 0.04;
+    const int desiredUnderlyingCardCount = 4;
+    final int visibleStackDepth = (desiredUnderlyingCardCount + 1);
+
+    // Show up to (desiredUnderlyingCardCount) underlying cards to create a visible stack
+    final renderCount = (cardItems.length - topIndex).clamp(0, visibleStackDepth);
+
+    // Use the defined swipe threshold for a more accurate progress value
+    final dragThreshold = screenWidth * 0.4;
+    final dragProgress = (_dragPosition.dx.abs() / dragThreshold).clamp(0.0, 1.0);
 
     for (int i = 0; i < renderCount; i++) {
-      final cardIndex = cardStackState.currentCardIndex + i;
-      final cardItem = cardStackState.cardItems[cardIndex];
+      final cardModelIndex = topIndex + i;
+      final currentCardModel = cardItems[cardModelIndex];
       final isTopCard = i == 0;
 
       if (isTopCard) {
-        final rotationAngle = _dragPosition.dx / screenWidth * (pi / 12);
+        // The top card is controlled by the user's drag gesture
+        final rotationAngle = _dragPosition.dx / screenWidth * (pi / 12); // Approx +/- 15 degrees at full drag
         cards.add(ConversationCardWidget(
-          key: ValueKey(cardItem.id),
-          cardItem: cardItem,
+          key: ValueKey(currentCardModel.id),
+          cardItem: currentCardModel,
           position: _dragPosition,
           angle: rotationAngle,
+          scale: 1.0, // Top card is always at full scale
         ));
       } else {
-        // Card underneath
-        final dragProgress = (_dragPosition.dx.abs() / screenWidth).clamp(0.0, 1.0);
-        final scale = (0.95 + (dragProgress * 0.05)).clamp(0.95, 1.0);
-        final offset = Offset(0, -10 + 10 * dragProgress);
+        // --- Resting State for the current card (at stack depth i) ---
+        final restingRotation = currentCardModel.rotation; // Pre-calculated random rotation
+        final restingBaseOffset = currentCardModel.offset; // Pre-calculated random X/Y jitter
+        final restingStackOffsetY = i * cardVerticalPeekingOffset;
+        final restingOffset = Offset(restingBaseOffset.dx, restingBaseOffset.dy + restingStackOffsetY);
+        final restingScale = 1.0 - (i * cardScaleDecrement);
+
+        // --- Target State for the current card (animates to become the card at stack depth i-1) ---
+        double targetRotation;
+        Offset targetOffset;
+        double targetScale;
+
+        if (i == 1) { // This card is becoming the new top card (stack depth 0)
+          targetRotation = 0.0; // Top card has no rotation
+          targetOffset = Offset.zero; // Top card has no offset
+          targetScale = 1.0; // Top card is full scale
+        } else {
+          // This card is moving one step up to replace the card that was at stack depth (i-1)
+          final cardModelForTargetState = cardItems[topIndex + i - 1];
+          targetRotation = cardModelForTargetState.rotation;
+          final targetBaseOffset = cardModelForTargetState.offset;
+          final targetStackOffsetY = (i - 1) * cardVerticalPeekingOffset;
+          targetOffset = Offset(targetBaseOffset.dx, targetBaseOffset.dy + targetStackOffsetY);
+          targetScale = 1.0 - ((i - 1) * cardScaleDecrement);
+        }
+
+        // Interpolate between resting and target states based on drag progress
+        final lerpRotation = lerpDouble(restingRotation, targetRotation, dragProgress)!;
+        final lerpOffset = Offset.lerp(restingOffset, targetOffset, dragProgress)!;
+        final lerpScale = lerpDouble(restingScale, targetScale, dragProgress)!;
 
         cards.add(ConversationCardWidget(
-          key: ValueKey(cardItem.id),
-          cardItem: cardItem,
-          scale: scale,
-          position: offset,
+          key: ValueKey(currentCardModel.id),
+          cardItem: currentCardModel,
+          position: lerpOffset,
+          angle: lerpRotation,
+          scale: lerpScale,
         ));
       }
     }
+    // Reverse the list so the top card is rendered last (on top)
     return cards.reversed.toList();
   }
 

@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:math';
+import 'dart:ui';
 import 'package:uuid/uuid.dart';
 import 'package:collection/collection.dart'; // For ListEquality
 import '../../data/models/conversation_card_item.dart';
@@ -7,6 +9,7 @@ const _uuid = Uuid();
 
 // 1. Card Data Model & Provider for initial questions
 final conversationQuestionsProvider = Provider<List<ConversationCardItem>>((ref) {
+  final random = Random();
   final questions = [
     "What’s something you’re proud of that you rarely get to talk about?",
     "If you could relive one ordinary day exactly as it happened, which day would you choose and why?",
@@ -35,7 +38,20 @@ final conversationQuestionsProvider = Provider<List<ConversationCardItem>>((ref)
     "Looking back a year from now, what story do you hope we’ll be telling about tonight?",
   ];
 
-  return questions.map((q) => ConversationCardItem(id: _uuid.v4(), question: q)).toList();
+    return questions.map((q) {
+    final rotation = (random.nextDouble() * 1.5 + 1.5) * (random.nextBool() ? 1 : -1) * (pi / 180);
+    final offset = Offset(
+      (random.nextDouble() * 2 + 4) * (random.nextBool() ? 1 : -1),
+      (random.nextDouble() * 2 + 4) * (random.nextBool() ? 1 : -1),
+    );
+
+    return ConversationCardItem(
+      id: _uuid.v4(),
+      question: q,
+      rotation: rotation,
+      offset: offset,
+    );
+  }).toList();
 });
 
 // 2. Card Stack State
