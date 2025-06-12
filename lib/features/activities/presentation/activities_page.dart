@@ -23,7 +23,7 @@ class ActivitiesPage extends StatelessWidget {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                context.go(AppRoutes.conversationCards);
+                context.push(AppRoutes.conversationCards);
               },
               child: const Text('Go to Conversation Cards'),
             ),

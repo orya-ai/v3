@@ -1,8 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart'; // Import for HapticFeedback
 import '../application/providers/conversation_cards_providers.dart';
 import './widgets/conversation_card_widget.dart';
+import 'package:go_router/go_router.dart'; // Import go_router
 
 class ConversationCardsPage extends ConsumerStatefulWidget {
   const ConversationCardsPage({super.key});
@@ -70,6 +72,7 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
         .animate(CurvedAnimation(parent: _animationController, curve: Curves.easeIn));
 
     _animationController.forward(from: 0).whenComplete(() {
+      HapticFeedback.mediumImpact(); // Add haptic feedback
       ref.read(cardStackControllerProvider.notifier).swipeTopCard();
       _animationController.reset();
       setState(() {
@@ -92,6 +95,7 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
 
     return Scaffold(
       appBar: AppBar(
+        leading: BackButton(onPressed: () => context.pop()), // Use context.pop() for go_router
         title: const Text('Conversation Cards'),
       ),
       body: Center(

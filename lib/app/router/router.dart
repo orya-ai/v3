@@ -87,6 +87,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Protected top-level routes (full-screen experiences outside the main shell)
       GoRoute(
         path: AppRoutes.conversationCards,
+        parentNavigatorKey: rootNavigatorKey, // Ensures this route uses the root navigator
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
           child: const ConversationCardsPage(),

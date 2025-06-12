@@ -7,13 +7,35 @@ const _uuid = Uuid();
 
 // 1. Card Data Model & Provider for initial questions
 final conversationQuestionsProvider = Provider<List<ConversationCardItem>>((ref) {
-  return List.generate(
-    25,
-    (index) => ConversationCardItem(
-      id: _uuid.v4(),
-      question: 'Placeholder Question ${index + 1}: What is your favorite color?',
-    ),
-  );
+  final questions = [
+    "What’s something you’re proud of that you rarely get to talk about?",
+    "If you could relive one ordinary day exactly as it happened, which day would you choose and why?",
+    "What topic could you happily research for the rest of your life?",
+    "What’s a belief you held five years ago that you’ve since revised?",
+    "Who outside your family has influenced you most, and how did they earn that influence?",
+    "What’s a small act of kindness someone showed you that you still remember?",
+    "When do you feel most like the “real” you?",
+    "What’s a fear you’re actively working on overcoming right now?",
+    "What does “home” feel like to you?",
+    "Which fictional character do you relate to most, and what does that say about you?",
+    "If time and money were no object, what problem in the world would you tackle first?",
+    "What song or piece of art has moved you unexpectedly?",
+    "What do you think your 80-year-old self would thank you for doing today?",
+    "What’s one assumption people often make about you that isn’t true?",
+    "Which conversation in your life changed your mind the most?",
+    "How do you recharge when the world feels overwhelming?",
+    "What role does spirituality (in any form) play in your life right now?",
+    "What’s a habit you admire in others but struggle to maintain yourself?",
+    "If a close friend described you in three adjectives, what do you hope they’d choose—and why?",
+    "What’s the best compliment you’ve ever received?",
+    "When have you felt most connected to nature?",
+    "What’s an unpopular opinion you hold—about something trivial?",
+    "Who knows you best, and what do they “get” that most people miss?",
+    "What question do you wish people asked you more often?",
+    "Looking back a year from now, what story do you hope we’ll be telling about tonight?",
+  ];
+
+  return questions.map((q) => ConversationCardItem(id: _uuid.v4(), question: q)).toList();
 });
 
 // 2. Card Stack State
