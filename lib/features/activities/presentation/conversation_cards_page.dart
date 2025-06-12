@@ -16,6 +16,8 @@ class ConversationCardsPage extends ConsumerStatefulWidget {
   ConsumerState<ConversationCardsPage> createState() => _ConversationCardsPageState();
 }
 
+enum SwipeDirection { left, right, up, down }
+
 class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<Offset> _animation;
@@ -55,19 +57,48 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
 
   void _onPanEnd(DragEndDetails details) {
     final screenSize = MediaQuery.of(context).size;
-    final dragThreshold = screenSize.width * 0.4;
+    final dragThresholdX = screenSize.width * 0.4;
+    final dragThresholdY = screenSize.height * 0.3; // Threshold for vertical swipe
+    final velocity = details.velocity.pixelsPerSecond;
 
-    if (_dragPosition.dx.abs() > dragThreshold) {
-      _triggerSwipeAnimation();
+    // Check for horizontal swipe
+    if (_dragPosition.dx.abs() > dragThresholdX || velocity.dx.abs() > 1000) {
+      if (_dragPosition.dx > 0) {
+        _triggerSwipeAnimation(SwipeDirection.right);
+      } else {
+        _triggerSwipeAnimation(SwipeDirection.left);
+      }
+    // Check for vertical swipe
+    } else if (_dragPosition.dy.abs() > dragThresholdY || velocity.dy.abs() > 1000) {
+      if (_dragPosition.dy > 0) {
+        _triggerSwipeAnimation(SwipeDirection.down);
+      } else {
+        _triggerSwipeAnimation(SwipeDirection.up);
+      }
     } else {
       _triggerSnapBackAnimation();
     }
   }
 
-  void _triggerSwipeAnimation() {
+  void _triggerSwipeAnimation(SwipeDirection direction) {
     final screenSize = MediaQuery.of(context).size;
-    final endX = _dragPosition.dx > 0 ? screenSize.width * 1.5 : -screenSize.width * 1.5;
-    final endY = _dragPosition.dy;
+    double endX = _dragPosition.dx;
+    double endY = _dragPosition.dy;
+
+    switch (direction) {
+      case SwipeDirection.left:
+        endX = -screenSize.width * 1.5;
+        break;
+      case SwipeDirection.right:
+        endX = screenSize.width * 1.5;
+        break;
+      case SwipeDirection.up:
+        endY = -screenSize.height * 1.5;
+        break;
+      case SwipeDirection.down:
+        endY = screenSize.height * 1.5;
+        break;
+    }
 
     _animation = Tween<Offset>(begin: _dragPosition, end: Offset(endX, endY))
         .animate(CurvedAnimation(parent: _animationController, curve: Curves.easeIn));
