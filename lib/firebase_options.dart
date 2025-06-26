@@ -42,7 +42,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyDmY-PbSJNm0x2k4nWENSA2khZYsbf5d84',
-    appId: '1:190918956616:web:c7cc92d08f8cde0146aa7d',
+    appId: '1:190918956616:web:64ca9991eb6a28f746aa7d',
     messagingSenderId: '190918956616',
     projectId: 'orya-v3',
     authDomain: 'orya-v3.firebaseapp.com',
@@ -51,25 +51,25 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBtgZb3A_XKM_NFgoPHq0_71DpX1TUo4pQ',
-    appId: '1:190918956616:ios:e1cfbd65fe5eb1fa46aa7d',
+    appId: '1:190918956616:ios:d4a7c638fa3c285d46aa7d',
     messagingSenderId: '190918956616',
     projectId: 'orya-v3',
     storageBucket: 'orya-v3.firebasestorage.app',
-    iosBundleId: 'com.example.myFlutterApp',
+    iosBundleId: 'com.orya.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyBtgZb3A_XKM_NFgoPHq0_71DpX1TUo4pQ',
-    appId: '1:190918956616:ios:e1cfbd65fe5eb1fa46aa7d',
+    appId: '1:190918956616:ios:d4a7c638fa3c285d46aa7d',
     messagingSenderId: '190918956616',
     projectId: 'orya-v3',
     storageBucket: 'orya-v3.firebasestorage.app',
-    iosBundleId: 'com.example.myFlutterApp',
+    iosBundleId: 'com.orya.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
     apiKey: 'AIzaSyDmY-PbSJNm0x2k4nWENSA2khZYsbf5d84',
-    appId: '1:190918956616:web:4b1b2b0f3b2bc0ed46aa7d',
+    appId: '1:190918956616:web:980fca510bb375c946aa7d',
     messagingSenderId: '190918956616',
     projectId: 'orya-v3',
     authDomain: 'orya-v3.firebaseapp.com',
@@ -78,7 +78,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyDVxpVh7vBEi14CKoO1giy4uygCMVZSP-E',
-    appId: '1:190918956616:android:8d5d540f2c66ff7b46aa7d',
+    appId: '1:190918956616:android:f9fedaf169b3d91946aa7d',
     messagingSenderId: '190918956616',
     projectId: 'orya-v3',
     storageBucket: 'orya-v3.firebasestorage.app',

@@ -1,11 +1,11 @@
 {
-    "name": "my_flutter_app",
-    "short_name": "my_flutter_app",
+    "name": "ORYA",
+    "short_name": "ORYA",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "ORYA - Your Connection OS",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

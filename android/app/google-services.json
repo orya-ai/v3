@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:190918956616:android:8d5d540f2c66ff7b46aa7d",
+        "mobilesdk_app_id": "1:190918956616:android:f9fedaf169b3d91946aa7d",
         "android_client_info": {
-          "package_name": "com.example.my_flutter_app"
+          "package_name": "com.orya.app"
         }
       },
       "oauth_client": [],

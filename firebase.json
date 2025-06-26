@@ -1,7 +1,4 @@
 {
-  "functions": {
-    "source": "functions"
-  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
@@ -19,5 +16,44 @@
       "port": 4002
     },
     "singleProjectMode": true
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "orya-v3",
+          "appId": "1:190918956616:android:f9fedaf169b3d91946aa7d",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "orya-v3",
+          "appId": "1:190918956616:ios:d4a7c638fa3c285d46aa7d",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "orya-v3",
+          "appId": "1:190918956616:ios:d4a7c638fa3c285d46aa7d",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "orya-v3",
+          "configurations": {
+            "android": "1:190918956616:android:f9fedaf169b3d91946aa7d",
+            "ios": "1:190918956616:ios:d4a7c638fa3c285d46aa7d",
+            "macos": "1:190918956616:ios:d4a7c638fa3c285d46aa7d",
+            "web": "1:190918956616:web:64ca9991eb6a28f746aa7d",
+            "windows": "1:190918956616:web:980fca510bb375c946aa7d"
+          }
+        }
+      }
+    }
   }
 }

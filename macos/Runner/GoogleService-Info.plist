@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.myFlutterApp</string>
+	<string>com.orya.app</string>
 	<key>PROJECT_ID</key>
 	<string>orya-v3</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:190918956616:ios:e1cfbd65fe5eb1fa46aa7d</string>
+	<string>1:190918956616:ios:d4a7c638fa3c285d46aa7d</string>
 </dict>
 </plist>
