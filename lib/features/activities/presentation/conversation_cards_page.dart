@@ -127,32 +127,71 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
 
     return Scaffold(
       appBar: AppBar(
-        leading: BackButton(onPressed: () => context.pop()), // Use context.pop() for go_router
-        title: const Text('Conversation Cards'),
+        title: const Text('Conversation Starters'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
       ),
-      body: Center(
-        child: cardStackState.cardItems.isEmpty || cardStackState.currentCardIndex >= cardStackState.cardItems.length
-            ? _buildAllCardsSwipedView(cardStackNotifier)
-            : GestureDetector(
-                onPanStart: _onPanStart,
-                onPanUpdate: _onPanUpdate,
-                onPanEnd: _onPanEnd,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: _buildCardStack(context, cardStackState),
-                ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildCategoryButtons(context, ref),
+            Expanded(
+              child: cardStackState.cardItems.isEmpty || cardStackState.currentCardIndex >= cardStackState.cardItems.length
+                  ? _buildAllCardsSwipedView(cardStackNotifier)
+                  : GestureDetector(
+                      onPanStart: _onPanStart,
+                      onPanUpdate: _onPanUpdate,
+                      onPanEnd: _onPanEnd,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: _buildCardStack(context, cardStackState),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryButtons(BuildContext context, WidgetRef ref) {
+    final selectedCategory = ref.watch(selectedCategoryProvider);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: ConversationCategory.values.map((category) {
+          final isSelected = category == selectedCategory;
+          return ElevatedButton(
+            onPressed: () {
+              ref.read(selectedCategoryProvider.notifier).state = category;
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isSelected ? Theme.of(context).primaryColor : Colors.grey[300],
+              foregroundColor: isSelected ? Colors.white : Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            child: Text(category.name),
+          );
+        }).toList(),
       ),
     );
   }
 
   List<Widget> _buildCardStack(BuildContext context, CardStackState cardStackState) {
-    final cards = <Widget>[];
-    final screenWidth = MediaQuery.of(context).size.width;
     final cardItems = cardStackState.cardItems;
     final topIndex = cardStackState.currentCardIndex;
+    final screenWidth = MediaQuery.of(context).size.width;
+    List<Widget> cards = [];
 
-    const double cardVerticalPeekingOffset = 8.0;
+    const double cardVerticalPeekingOffset = 10.0;
     const double cardScaleDecrement = 0.04;
     const int desiredUnderlyingCardCount = 4;
     final int visibleStackDepth = (desiredUnderlyingCardCount + 1);
