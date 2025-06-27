@@ -192,15 +192,13 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
     final screenWidth = MediaQuery.of(context).size.width;
     List<Widget> cards = [];
 
-      const double cardVerticalPeekingOffset = 16.0; // Further increased to ensure 4 cards are visible
-    const double cardScaleDecrement = 0.05; // Increased to make lower cards smaller and more visible
+    const double cardVerticalPeekingOffset = 16.0;
+    const double cardScaleDecrement = 0.05;
     const int desiredUnderlyingCardCount = 4;
     final int visibleStackDepth = (desiredUnderlyingCardCount + 1);
 
-    // Show up to (desiredUnderlyingCardCount) underlying cards to create a visible stack
     final renderCount = (cardItems.length - topIndex).clamp(0, visibleStackDepth);
 
-    // Use the defined swipe threshold for a more accurate progress value
     final dragThreshold = screenWidth * 0.4;
     final dragProgress = (_dragPosition.dx.abs() / dragThreshold).clamp(0.0, 1.0);
 
@@ -210,54 +208,58 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
       final isTopCard = i == 0;
 
       if (isTopCard) {
-        // The top card is controlled by the user's drag gesture
-        final rotationAngle = _dragPosition.dx / screenWidth * (pi / 12); // Approx +/- 15 degrees at full drag
+        final rotationAngle = _dragPosition.dx / screenWidth * (pi / 12);
+        final blurRadius = lerpDouble(8, 16, dragProgress)!;
+
         cards.add(ConversationCardWidget(
           key: ValueKey(currentCardModel.id),
           cardItem: currentCardModel,
           position: _dragPosition,
           angle: rotationAngle,
-          scale: 1.0, // Top card is always at full scale
+          scale: 1.0,
+          blurRadius: blurRadius,
         ));
-      } else {
-        // --- Resting State for the current card (at stack depth i) ---
-        final restingRotation = currentCardModel.rotation; // Pre-calculated random rotation
-        final restingBaseOffset = currentCardModel.offset; // Pre-calculated random X/Y jitter
+      } else { // i > 0, underlying cards
+        final restingRotation = currentCardModel.rotation;
+        final restingBaseOffset = currentCardModel.offset;
         final restingStackOffsetY = i * cardVerticalPeekingOffset;
         final restingOffset = Offset(restingBaseOffset.dx, restingBaseOffset.dy + restingStackOffsetY);
         final restingScale = 1.0 - (i * cardScaleDecrement);
 
-        // --- Target State for the current card (animates to become the card at stack depth i-1) ---
-        double targetRotation;
-        Offset targetOffset;
-        double targetScale;
+        if (i == 1) { // This card is becoming the new top card
+          const targetRotation = 0.0;
+          const targetOffset = Offset.zero;
+          const targetScale = 1.0;
 
-        if (i == 1) { // This card is becoming the new top card (stack depth 0)
-          targetRotation = 0.0; // Top card has no rotation
-          targetOffset = Offset.zero; // Top card has no offset
-          targetScale = 1.0; // Top card is full scale
-        } else {
-          // This card is moving one step up to replace the card that was at stack depth (i-1)
+          final lerpRotation = lerpDouble(restingRotation, targetRotation, dragProgress)!;
+          final lerpOffset = Offset.lerp(restingOffset, targetOffset, dragProgress)!;
+          final lerpScale = lerpDouble(restingScale, targetScale, dragProgress)!;
+
+          cards.add(ConversationCardWidget(
+            key: ValueKey(currentCardModel.id),
+            cardItem: currentCardModel,
+            position: lerpOffset,
+            angle: lerpRotation,
+            scale: lerpScale,
+          ));
+        } else { // i > 1, supporting cards that just move up
           final cardModelForTargetState = cardItems[topIndex + i - 1];
-          targetRotation = cardModelForTargetState.rotation;
           final targetBaseOffset = cardModelForTargetState.offset;
           final targetStackOffsetY = (i - 1) * cardVerticalPeekingOffset;
-          targetOffset = Offset(targetBaseOffset.dx, targetBaseOffset.dy + targetStackOffsetY);
-          targetScale = 1.0 - ((i - 1) * cardScaleDecrement);
+          final targetOffset = Offset(targetBaseOffset.dx, targetBaseOffset.dy + targetStackOffsetY);
+          final targetScale = 1.0 - ((i - 1) * cardScaleDecrement);
+
+          final lerpOffset = Offset.lerp(restingOffset, targetOffset, dragProgress)!;
+          final lerpScale = lerpDouble(restingScale, targetScale, dragProgress)!;
+
+          cards.add(ConversationCardWidget(
+            key: ValueKey(currentCardModel.id),
+            cardItem: currentCardModel,
+            position: lerpOffset,
+            angle: restingRotation, // Keep the original fanned angle
+            scale: lerpScale,
+          ));
         }
-
-        // Interpolate between resting and target states based on drag progress
-        final lerpRotation = lerpDouble(restingRotation, targetRotation, dragProgress)!;
-        final lerpOffset = Offset.lerp(restingOffset, targetOffset, dragProgress)!;
-        final lerpScale = lerpDouble(restingScale, targetScale, dragProgress)!;
-
-        cards.add(ConversationCardWidget(
-          key: ValueKey(currentCardModel.id),
-          cardItem: currentCardModel,
-          position: lerpOffset,
-          angle: lerpRotation,
-          scale: lerpScale,
-        ));
       }
     }
     // Reverse the list so the top card is rendered last (on top)

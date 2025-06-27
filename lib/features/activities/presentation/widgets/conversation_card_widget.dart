@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/conversation_card_item.dart';
@@ -7,6 +9,7 @@ class ConversationCardWidget extends StatelessWidget {
   final Offset position;
   final double angle;
   final double scale;
+  final double? blurRadius;
 
   const ConversationCardWidget({
     super.key,
@@ -14,13 +17,18 @@ class ConversationCardWidget extends StatelessWidget {
     this.position = Offset.zero,
     this.angle = 0,
     this.scale = 1.0,
+    this.blurRadius,
   });
 
+  @override
   @override
   Widget build(BuildContext context) {
     return Transform.translate(
       offset: position,
       child: Transform.rotate(
+        // By adding a key that's unique to the card, we ensure the transform state
+        // is correctly managed and not improperly reused by Flutter during rebuilds.
+        key: ValueKey('${cardItem.id}_rotate'),
         angle: angle,
         child: Transform.scale(
           scale: scale,
@@ -46,15 +54,17 @@ class ConversationCardWidget extends StatelessWidget {
         boxShadow: isTopCard
             ? [
                 // A sharper, closer shadow for edge definition
+                // A sharper, closer shadow for edge definition
                 BoxShadow(
                   color: Colors.black.withOpacity(0.2),
-                  blurRadius: 8,
+                  blurRadius: blurRadius ?? 8,
                   offset: const Offset(0, 4),
                 ),
                 // A softer, more diffuse shadow for depth
                 BoxShadow(
                   color: Colors.black.withOpacity(0.15),
-                  blurRadius: 25,
+                  // Interpolate the second shadow's blur proportionally with the first.
+                  blurRadius: blurRadius != null ? lerpDouble(25, 40, (blurRadius! - 8) / (16 - 8))! : 25,
                   offset: const Offset(0, 12),
                 ),
               ]
