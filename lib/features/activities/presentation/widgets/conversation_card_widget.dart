@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../data/models/conversation_card_item.dart';
 
 class ConversationCardWidget extends StatelessWidget {
@@ -34,14 +35,13 @@ class ConversationCardWidget extends StatelessWidget {
     final cardWidth = screenWidth * 0.85;
     final cardHeight = cardWidth * (3.5 / 2.5);
     final bool isTopCard = scale > 0.99; // Top card is at scale 1.0, others are smaller
-    final theme = Theme.of(context);
 
     return Container(
       width: cardWidth,
       height: cardHeight,
       padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primary, // Use accent color from theme
+        color: AppTheme.primaryBackgroundColor, // Use primary background color from theme
         borderRadius: BorderRadius.circular(16.0),
         boxShadow: isTopCard
             ? [
@@ -71,10 +71,10 @@ class ConversationCardWidget extends StatelessWidget {
         child: Text(
           cardItem.question,
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 20.0,
             fontWeight: FontWeight.w500,
-            color: theme.colorScheme.onPrimary, // Use text color for onPrimary
+            color: AppTheme.primaryTextColor, // Use primary text color
           ),
         ),
       ),

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart'; // Import for HapticFeedback
 import '../application/providers/conversation_cards_providers.dart';
 import './widgets/conversation_card_widget.dart';
 import 'package:go_router/go_router.dart'; // Import go_router
+import '../../../core/theme/app_theme.dart';
 
 class ConversationCardsPage extends ConsumerStatefulWidget {
   const ConversationCardsPage({super.key});
@@ -170,8 +171,8 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
               ref.read(selectedCategoryProvider.notifier).state = category;
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: isSelected ? Theme.of(context).primaryColor : Colors.grey[300],
-              foregroundColor: isSelected ? Colors.white : Colors.black,
+              backgroundColor: isSelected ? AppTheme.accentColor : AppTheme.primaryBackgroundColor,
+              foregroundColor: isSelected ? Colors.white : AppTheme.primaryTextColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
