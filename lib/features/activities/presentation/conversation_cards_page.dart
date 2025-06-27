@@ -192,8 +192,8 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
     final screenWidth = MediaQuery.of(context).size.width;
     List<Widget> cards = [];
 
-    const double cardVerticalPeekingOffset = 10.0;
-    const double cardScaleDecrement = 0.04;
+      const double cardVerticalPeekingOffset = 16.0; // Further increased to ensure 4 cards are visible
+    const double cardScaleDecrement = 0.05; // Increased to make lower cards smaller and more visible
     const int desiredUnderlyingCardCount = 4;
     final int visibleStackDepth = (desiredUnderlyingCardCount + 1);
 

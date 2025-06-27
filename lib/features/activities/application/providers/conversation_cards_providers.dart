@@ -156,7 +156,9 @@ final conversationQuestionsProvider = Provider<List<ConversationCardItem>>((ref)
   final questions = allQuestions[selectedCategory] ?? [];
 
   return questions.map((q) {
-    final rotation = (random.nextDouble() * 1.5 + 1.5) * (random.nextBool() ? 1 : -1) * (pi / 180);
+        // New rotation logic for a wider, fanned-out look.
+    // This corresponds to a base of ±4-6 deg with ±0.5 deg jitter, resulting in a range of ±[3.5, 6.5] degrees.
+    final rotation = (3.5 + random.nextDouble() * 3.0) * (random.nextBool() ? 1 : -1) * (pi / 180);
     final offset = Offset(
       (random.nextDouble() * 2 + 4) * (random.nextBool() ? 1 : -1),
       (random.nextDouble() * 2 + 4) * (random.nextBool() ? 1 : -1),
