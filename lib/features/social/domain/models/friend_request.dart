@@ -12,7 +12,7 @@ class FriendRequest {
   final String recipientId;
   final String senderDisplayName;
   final String? senderPhotoUrl;
-  final DateTime timestamp;
+  final DateTime createdAt;
   final FriendRequestStatus status;
 
   FriendRequest({
@@ -21,7 +21,7 @@ class FriendRequest {
     required this.recipientId,
     required this.senderDisplayName,
     this.senderPhotoUrl,
-    required this.timestamp,
+    required this.createdAt,
     required this.status,
   });
 
@@ -32,7 +32,7 @@ class FriendRequest {
       recipientId: json['recipientId'] as String,
       senderDisplayName: json['senderDisplayName'] as String,
       senderPhotoUrl: json['senderPhotoUrl'] as String?,
-      timestamp: (json['timestamp'] as Timestamp).toDate(),
+      createdAt: (json['createdAt'] as Timestamp).toDate(),
       status: FriendRequestStatus.values.firstWhere(
         (e) => e.name == (json['status'] as String),
         orElse: () => FriendRequestStatus.pending,
@@ -47,7 +47,7 @@ class FriendRequest {
       'recipientId': recipientId,
       'senderDisplayName': senderDisplayName,
       'senderPhotoUrl': senderPhotoUrl,
-      'timestamp': Timestamp.fromDate(timestamp),
+      'createdAt': Timestamp.fromDate(createdAt),
       'status': status.name,
     };
   }
@@ -58,7 +58,7 @@ class FriendRequest {
     String? recipientId,
     String? senderDisplayName,
     String? senderPhotoUrl,
-    DateTime? timestamp,
+    DateTime? createdAt,
     FriendRequestStatus? status,
   }) {
     return FriendRequest(
@@ -67,7 +67,7 @@ class FriendRequest {
       recipientId: recipientId ?? this.recipientId,
       senderDisplayName: senderDisplayName ?? this.senderDisplayName,
       senderPhotoUrl: senderPhotoUrl ?? this.senderPhotoUrl,
-      timestamp: timestamp ?? this.timestamp,
+      createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
     );
   }

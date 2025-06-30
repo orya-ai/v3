@@ -1,6 +1,9 @@
 import 'dart:async';
+
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../providers/user_search_provider.dart';
 
 class UserSearchBar extends ConsumerStatefulWidget {
@@ -43,6 +46,42 @@ class _UserSearchBarState extends ConsumerState<UserSearchBar> {
           ),
           filled: true,
           fillColor: Colors.grey[200],
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.delete_forever, color: Colors.red),
+            tooltip: 'Clear All Friend Data',
+            onPressed: () async {
+              try {
+                final functions = FirebaseFunctions.instance;
+                final result =
+                    await functions.httpsCallable('deleteAllFriendData').call();
+
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        result.data['message'] ?? 'Data cleared successfully!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } on FirebaseFunctionsException catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${e.message}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('An unexpected error occurred: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          ),
         ),
         onChanged: _onSearchChanged,
       ),

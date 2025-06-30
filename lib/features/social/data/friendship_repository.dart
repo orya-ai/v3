@@ -38,4 +38,15 @@ class FriendshipRepository {
       throw Exception('An unknown error occurred.');
     }
   }
+
+  Future<void> removeFriend(String friendId) async {
+    try {
+      final callable = _functions.httpsCallable('removeFriend');
+      await callable.call({'friendId': friendId});
+    } on FirebaseFunctionsException catch (e) {
+      throw Exception(e.message);
+    } catch (e) {
+      throw Exception('An unknown error occurred.');
+    }
+  }
 }

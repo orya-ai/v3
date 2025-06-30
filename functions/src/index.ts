@@ -86,11 +86,20 @@ export const sendFriendRequest = onCall(async (request) => {
         "already-exists", "Request already sent or received.");
     }
 
+    const senderDoc = await db.collection("users").doc(senderId).get();
+    const senderData = senderDoc.data();
+    if (!senderDoc.exists || !senderData) {
+      throw new HttpsError("not-found", "Sender profile not found.");
+    }
+
     const newRequest = {
       senderId,
       recipientId,
+      involvedUsers: [senderId, recipientId],
       status: "pending",
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      senderDisplayName: senderData.displayName,
+      senderPhotoUrl: senderData.photoUrl || null,
     };
     await db.collection("friend_requests").add(newRequest);
     return {success: true};
@@ -180,3 +189,101 @@ export const onFriendRequestUpdate = onDocumentUpdated(
       logger.error("Error creating friendship:", error);
     }
   });
+
+export const removeFriend = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be authenticated.");
+  }
+  const currentUserId = request.auth.uid;
+  const friendId = request.data.friendId as string;
+
+  if (!friendId) {
+    throw new HttpsError("invalid-argument", "Friend ID is required.");
+  }
+
+  try {
+    const batch = db.batch();
+
+    const currentUserFriendRef = db
+      .collection("users")
+      .doc(currentUserId)
+      .collection("friends")
+      .doc(friendId);
+    batch.delete(currentUserFriendRef);
+
+    const friendUserFriendRef = db
+      .collection("users")
+      .doc(friendId)
+      .collection("friends")
+      .doc(currentUserId);
+    batch.delete(friendUserFriendRef);
+
+    await batch.commit();
+    logger.info(`Friendship removed: ${currentUserId} and ${friendId}`);
+    return {success: true};
+  } catch (error) {
+    logger.error("Error removing friend:", error);
+    throw new HttpsError("internal", "Error removing friend.");
+  }
+});
+
+// DANGEROUS: This function deletes all friend requests and friendships.
+// For debugging purposes only. It operates on up to 500 items per
+// collection due to batch limits.
+// Should be removed after testing.
+export const deleteAllFriendData = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError(
+      "unauthenticated",
+      "Must be authenticated to perform this action.",
+    );
+  }
+
+  logger.warn("!!! INITIATING DELETION OF ALL FRIEND DATA !!!");
+
+  try {
+    // 1. Delete all documents in the friend_requests collection (up to 500)
+    const requestsRef = db.collection("friend_requests");
+    const requestsSnapshot = await requestsRef.limit(500).get();
+    if (!requestsSnapshot.empty) {
+      const batch = db.batch();
+      requestsSnapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+      logger.info(`Deleted ${requestsSnapshot.size} friend requests.`);
+    }
+
+    // 2. Delete all friends subcollections for all users (up to 500 per user)
+    const usersRef = db.collection("users");
+    const usersSnapshot = await usersRef.get();
+
+    for (const userDoc of usersSnapshot.docs) {
+      const friendsRef = userDoc.ref.collection("friends");
+      const friendsSnapshot = await friendsRef.limit(500).get();
+      if (friendsSnapshot.empty) {
+        continue;
+      }
+      const friendBatch = db.batch();
+      friendsSnapshot.docs.forEach((doc) => {
+        friendBatch.delete(doc.ref);
+      });
+      await friendBatch.commit();
+      logger.info(
+        `Deleted ${friendsSnapshot.size} friends for user ${userDoc.id}.`,
+      );
+    }
+
+    logger.warn("!!! SUCCESSFULLY DELETED ALL FRIEND DATA !!!");
+    return {
+      success: true,
+      message: "All friend data has been cleared.",
+    };
+  } catch (error) {
+    logger.error("Error deleting all friend data:", error);
+    throw new HttpsError(
+      "internal",
+      "An error occurred while deleting friend data.",
+    );
+  }
+});

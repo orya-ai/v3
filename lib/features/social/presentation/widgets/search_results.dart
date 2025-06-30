@@ -129,9 +129,28 @@ class UserCard extends ConsumerWidget {
                   child: const Text('Accept'),
                 );
               case FriendshipStatus.friends:
-                return const ElevatedButton(
-                  onPressed: null,
-                  child: Text('Friends'),
+                return ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                  ),
+                  onPressed: () async {
+                    try {
+                      await ref
+                          .read(friendshipRepositoryProvider)
+                          .removeFriend(user.uid);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text(
+                                'You are no longer friends with ${user.displayName}')),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text('Could not remove friend: $e')),
+                      );
+                    }
+                  },
+                  child: const Text('Unfriend'),
                 );
             }
           },
