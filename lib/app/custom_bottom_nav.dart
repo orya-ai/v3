@@ -11,11 +11,10 @@ class CustomBottomNavBar extends StatelessWidget {
   });
 
 static const _navItems = [
-  (icon: Icons.home, label: 'Dashboard'),  // Changed from 'Home' to 'Dashboard'
-  (icon: Icons.group, label: 'Social'),
-  (icon: Icons.extension, label: 'Activities'),
-  (icon: Icons.explore, label: 'Discovery'),  // Changed from 'Discover' to 'Discovery'
-];
+    (icon: Icons.home, label: 'Dashboard'),
+    (icon: Icons.card_giftcard, label: 'Activities'),
+    (icon: Icons.person, label: 'Profile'),
+  ];
 
 @override
 Widget build(BuildContext context) {

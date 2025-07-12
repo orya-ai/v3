@@ -11,13 +11,11 @@ class AppRoutes {
   // Main routes
   static const String root = '/';
   static const String dashboard = '/dashboard';
-  static const String social = '/social';
   static const String activities = '/activities';
   static const String conversationCards = '/conversation-cards';
-  static const String discovery = '/discovery';
+  static const String profile = '/profile';
   
   // Profile routes
-  static const String profile = '/profile';
   static const String settings = '/settings';
   static const String editProfile = '/profile/edit';
   

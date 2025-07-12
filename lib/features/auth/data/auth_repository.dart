@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../social/domain/models/app_user.dart';
+import '../domain/user.dart';
 
 class AuthRepository {
   final FirebaseAuth _firebaseAuth;

@@ -10,8 +10,8 @@ import '../../features/auth/domain/auth_state_notifier.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/signup_screen.dart';
 import '../../features/dashboard/presentation/dashboard_page.dart';
-import '../../features/discovery/presentation/discovery_page.dart';
-import '../../features/social/presentation/social_page.dart';
+import '../../features/profile/presentation/profile_page.dart';
+
 import '../main_scaffold.dart';
 import 'routes.dart';
 
@@ -109,13 +109,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: AppRoutes.social,
-            pageBuilder: (context, state) => NoTransitionPage(
-              key: state.pageKey,
-              child: const SocialPage(),
-            ),
-          ),
-          GoRoute(
             path: AppRoutes.activities,
             pageBuilder: (context, state) => NoTransitionPage(
               key: state.pageKey,
@@ -123,10 +116,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: AppRoutes.discovery,
+            path: AppRoutes.profile,
             pageBuilder: (context, state) => NoTransitionPage(
               key: state.pageKey,
-              child: const DiscoveryPage(),
+              child: const ProfilePage(),
             ),
           ),
         ],

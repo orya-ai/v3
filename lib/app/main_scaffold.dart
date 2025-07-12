@@ -7,19 +7,18 @@ import 'router/router.dart';
 import 'router/routes.dart'; // Import AppRoutes directly
 
 // Enum for route names
-enum AppRoute { dashboard, social, activities, discovery }
+enum AppRoute { dashboard, activities, profile }
 
 extension AppRouteExtension on AppRoute {
   String get path {
     switch (this) {
       case AppRoute.dashboard:
         return '/dashboard';
-      case AppRoute.social:
-        return '/social';
+
       case AppRoute.activities:
         return '/activities';
-      case AppRoute.discovery:
-        return '/discovery';
+      case AppRoute.profile:
+        return '/profile';
     }
   }
 
