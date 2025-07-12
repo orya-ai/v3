@@ -3,6 +3,7 @@ import '../../legal/privacy_policy_page.dart';
 import '../../legal/terms_page.dart';
 import 'widgets/profile_header.dart';
 import 'widgets/profile_menu_item.dart';
+import 'edit_profile_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -25,8 +26,18 @@ class _ProfilePageState extends State<ProfilePage> {
           ProfileMenuItem(
             title: 'Edit Profile',
             icon: Icons.person_outline,
-            onTap: () {
-              // TODO: Implement edit profile functionality
+            onTap: () async {
+              final newName = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditProfilePage(currentName: userName),
+                ),
+              );
+              if (newName != null && newName is String) {
+                setState(() {
+                  userName = newName;
+                });
+              }
             },
           ),
           ProfileMenuItem(
