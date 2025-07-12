@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/theme/app_theme.dart';
 
 class EditProfilePage extends StatefulWidget {
@@ -11,13 +13,55 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
-  late String _name;
-  String _email = 'nicole@example.com'; // Keep email as is for now
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  late TextEditingController _nameController;
+  late TextEditingController _emailController;
+
+  User? _user;
+  bool _isLoading = true; // Start with loading true
 
   @override
   void initState() {
     super.initState();
-    _name = widget.currentName;
+    _user = _auth.currentUser;
+    _nameController = TextEditingController();
+    _emailController = TextEditingController();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    if (_user != null) {
+      try {
+        final docSnapshot = await _firestore.collection('users').doc(_user!.uid).get();
+        if (mounted && docSnapshot.exists) {
+          final data = docSnapshot.data()!;
+          _nameController.text = data['displayName'] ?? _user!.displayName ?? '';
+          _emailController.text = _user!.email ?? '';
+        } else {
+          // Handle case where user doc doesn't exist but auth user does
+          _nameController.text = _user!.displayName ?? widget.currentName;
+          _emailController.text = _user!.email ?? '';
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to load user data: $e')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -52,22 +96,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             const SizedBox(height: 18),
             _buildTextField(
-                label: 'Full Name',
-                initialValue: _name,
-                onSaved: (value) => _name = value!),
+              label: 'Full Name',
+              controller: _nameController,
+            ),
             const SizedBox(height: 20),
             _buildTextField(
-                label: 'Email',
-                initialValue: _email,
-                onSaved: (value) => _email = value!),
+              label: 'Email',
+              controller: _emailController,
+              enabled: false, // Don't allow email changes for now
+            ),
             const Spacer(),
             ElevatedButton(
-              onPressed: () {
-                if (_formKey.currentState!.validate()) {
-                  _formKey.currentState!.save();
-                  Navigator.pop(context, _name);
-                }
-              },
+              onPressed: _isLoading ? null : _saveChanges,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryButtonColor,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -76,13 +116,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
                 elevation: 2,
               ),
-              child: const Text(
-                'Save Changes',
-                style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold),
-              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.0,
+                      ),
+                    )
+                  : const Text(
+                      'Save Changes',
+                      style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold),
+                    ),
             ),
             const SizedBox(height: 20),
           ],
@@ -91,13 +140,57 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildTextField(
-      {required String label,
-      required String initialValue,
-      required FormFieldSetter<String> onSaved}) {
+  Future<void> _saveChanges() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final newName = _nameController.text.trim();
+
+      // The call to update Firebase Auth is no longer needed here.
+      // The onUserUpdate Cloud Function will handle it automatically.
+      // await _user?.updateDisplayName(newName);
+
+      // Update name in Firestore - this is now the single operation.
+      await _firestore.collection('users').doc(_user!.uid).update({
+        'displayName': newName,
+        'displayName_lowercase': newName.toLowerCase(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully')),
+        );
+        Navigator.pop(context, newName);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update profile: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    bool enabled = true,
+  }) {
     return TextFormField(
-      initialValue: initialValue,
-      onSaved: onSaved,
+      controller: controller,
+      enabled: enabled,
       validator: (value) {
         if (value == null || value.isEmpty) {
           return 'Please enter your $label';
@@ -111,7 +204,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         labelText: label,
         labelStyle: const TextStyle(color: AppTheme.primaryTextColor),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.1),
+        fillColor: enabled ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
