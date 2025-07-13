@@ -49,6 +49,7 @@ class GamificationNotifier extends StateNotifier<GamificationState> {
     final today = DateTime(now.year, now.month, now.day);
     final newWeeklyProgress = List<bool>.filled(7, false);
 
+    // Adjust for Dart's weekday format (Monday=1, Sunday=7)
     final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
 
     try {
