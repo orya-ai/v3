@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ORYA/core/theme/app_theme.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../application/gamification_provider.dart';
+import 'package:intl/intl.dart';
+import 'package:ORYA/features/dashboard/application/gamification_provider.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -94,7 +96,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   Widget _buildGamificationArea(BuildContext context) {
     final gamificationState = ref.watch(gamificationProvider);
-    final List<String> days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+    // Use intl to get localized day names, starting with Monday
+    final daySymbols = DateFormat.E().dateSymbols.STANDALONESHORTWEEKDAYS;
+    final List<String> days = [...daySymbols.sublist(1), daySymbols[0]];
 
     if (gamificationState.isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -154,21 +159,20 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
               'Connection Prompt Of The Day',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: AppTheme.primaryTextColor,
-                        fontWeight: FontWeight.bold,
-                      ),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: AppTheme.primaryTextColor.withOpacity(0.7),
+                  ),
             ),
             const SizedBox(height: 16),
             Text(
               currentPrompt,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.primaryTextColor,
-                  ),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             
@@ -180,7 +184,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   Widget _buildDayIndicator(String day, bool isCompleted, int index) {
     final today = DateTime.now();
-    final isCurrentDay = today.weekday - 1 == index;
+    // In Dart, Monday is 1 and Sunday is 7. We map this to our 0-indexed list where Monday is 0.
+    final isCurrentDay = (today.weekday - 1) == index;
 
     return Column(
       children: [
