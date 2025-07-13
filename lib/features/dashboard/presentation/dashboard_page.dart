@@ -77,7 +77,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return Row(
       children: [
         Text(
-          'Hello $displayName!',
+          'Hello, $displayName.',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: AppTheme.primaryTextColor,
                 fontWeight: FontWeight.bold,
