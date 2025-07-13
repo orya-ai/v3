@@ -13,25 +13,19 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String _displayName = 'User';
-  int _streakCount = 170; // Example streak count
-  final List<bool> _weeklyProgress = [
-    true, // Monday
-    true, // Tuesday
-    true, // Wednesday
-    true, // Thursday
-    false, // Friday
-    false, // Saturday
-    false, // Sunday
-  ];
+  int _streakCount = 0;
+  List<bool> _weeklyProgress = List.filled(7, false);
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadGamificationData();
     // Listen to user changes to update the display name in real-time
     FirebaseAuth.instance.userChanges().listen((user) {
       if (user != null) {
         _loadUserData(); // Reload data from Firestore on user change
+        _loadGamificationData();
       }
     });
   }
@@ -60,6 +54,72 @@ class _DashboardPageState extends State<DashboardPage> {
           });
         }
       }
+    }
+  }
+
+  Future<void> _loadGamificationData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final newWeeklyProgress = List<bool>.filled(7, false);
+
+    // Determine the start of the current week (Monday)
+    final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
+
+    // Fetch activity for the current week
+    for (int i = 0; i < 7; i++) {
+      final dateToCheck = startOfWeek.add(Duration(days: i));
+      final dateString = "${dateToCheck.year}-${dateToCheck.month.toString().padLeft(2, '0')}-${dateToCheck.day.toString().padLeft(2, '0')}";
+
+      final doc = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('activity')
+          .doc(dateString)
+          .get();
+
+      if (doc.exists) {
+        newWeeklyProgress[i] = true;
+      }
+    }
+
+    // Calculate streak
+    int currentStreak = 0;
+    bool streakAlive = true;
+    for (int i = 0; ; i++) {
+      final dateToCheck = today.subtract(Duration(days: i));
+      final dateString = "${dateToCheck.year}-${dateToCheck.month.toString().padLeft(2, '0')}-${dateToCheck.day.toString().padLeft(2, '0')}";
+
+      final doc = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('activity')
+          .doc(dateString)
+          .get();
+
+      if (doc.exists) {
+        currentStreak++;
+      } else {
+        // If today is not completed, the streak is from yesterday backwards.
+        // If any other day is missed, the streak is broken.
+        if (i > 0) {
+           streakAlive = false;
+        }
+        // If we miss today, we still check yesterday for the start of the streak.
+        // If we miss any other day, the loop can stop.
+        if (!streakAlive) break;
+      }
+       // To avoid infinite loops, let's cap the search at 365 days.
+      if (i > 365) break;
+    }
+
+    if (mounted) {
+      setState(() {
+        _streakCount = currentStreak;
+        _weeklyProgress = newWeeklyProgress;
+      });
     }
   }
 
@@ -133,7 +193,7 @@ class _DashboardPageState extends State<DashboardPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: List.generate(7, (index) {
-                return _buildDayIndicator(days[index], _weeklyProgress[index]);
+                return _buildDayIndicator(days[index], _weeklyProgress[index], index);
               }),
             ),
           ],
@@ -142,12 +202,19 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildDayIndicator(String day, bool isCompleted) {
+  Widget _buildDayIndicator(String day, bool isCompleted, int index) {
+    final today = DateTime.now();
+    final isCurrentDay = today.weekday - 1 == index;
+
     return Column(
       children: [
         Text(
           day,
-          style: TextStyle(color: AppTheme.primaryTextColor, fontWeight: FontWeight.bold, fontSize: 12),
+          style: TextStyle(
+            color: isCurrentDay ? AppTheme.accentColor : AppTheme.primaryTextColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
         ),
         const SizedBox(height: 8),
         Container(
@@ -156,6 +223,7 @@ class _DashboardPageState extends State<DashboardPage> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: isCompleted ? AppTheme.accentColor : Colors.grey.shade300,
+            border: isCurrentDay ? Border.all(color: AppTheme.accentColor, width: 2) : null,
           ),
           child: isCompleted
               ? const Icon(Icons.check, color: Colors.white, size: 18)
