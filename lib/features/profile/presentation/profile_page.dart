@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../legal/privacy_policy_page.dart';
-import '../../legal/terms_page.dart';
+import 'package:go_router/go_router.dart';
+import '../../../app/router/routes.dart';
 import 'widgets/profile_header.dart';
 import 'widgets/profile_menu_item.dart';
 import 'edit_profile_page.dart';
@@ -44,20 +44,14 @@ class _ProfilePageState extends State<ProfilePage> {
             title: 'Terms & Conditions',
             icon: Icons.description_outlined,
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const TermsPage()),
-              );
+              context.go(AppRoutes.terms);
             },
           ),
           ProfileMenuItem(
             title: 'Privacy Policy',
             icon: Icons.privacy_tip_outlined,
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const PrivacyPolicyPage()),
-              );
+              context.go(AppRoutes.privacyPolicy);
             },
           ),
         ],

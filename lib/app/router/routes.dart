@@ -18,6 +18,8 @@ class AppRoutes {
   // Profile routes
   static const String settings = '/settings';
   static const String editProfile = '/profile/edit';
+  static const String privacyPolicy = '/profile/privacy-policy';
+  static const String terms = '/profile/terms';
   
   // Other routes
   static const String notifications = '/notifications';

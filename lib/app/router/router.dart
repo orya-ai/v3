@@ -10,6 +10,8 @@ import '../../features/auth/domain/auth_state_notifier.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/signup_screen.dart';
 import '../../features/dashboard/presentation/dashboard_page.dart';
+import '../../features/legal/privacy_policy_page.dart';
+import '../../features/legal/terms_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 
 import '../main_scaffold.dart';
@@ -120,6 +122,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => NoTransitionPage(
               key: state.pageKey,
               child: const ProfilePage(),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.privacyPolicy,
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const PrivacyPolicyPage(),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.terms,
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const TermsPage(),
             ),
           ),
         ],
