@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart'; // Import go_router
 import '../../../core/theme/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../dashboard/application/gamification_provider.dart';
 
 class ConversationCardsPage extends ConsumerStatefulWidget {
   const ConversationCardsPage({super.key});
@@ -138,6 +139,8 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
           .collection('activity')
           .doc(dateString)
           .set({'completedAt': FieldValue.serverTimestamp()});
+      // Refresh the gamification data after a successful write
+      ref.read(gamificationProvider.notifier).loadGamificationData();
     } catch (e) {
       debugPrint("Failed to record activity: $e");
     }
