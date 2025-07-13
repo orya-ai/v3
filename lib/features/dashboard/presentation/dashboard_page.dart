@@ -1,22 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ORYA/core/theme/app_theme.dart';
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final displayName = user?.displayName ?? 'User';
+  State<DashboardPage> createState() => _DashboardPageState();
+}
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFFEF9F3), // A warm, light background like the image
-      body: SafeArea(
+class _DashboardPageState extends State<DashboardPage> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  String _displayName = 'User';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+    // Listen to user changes to update the display name in real-time
+    FirebaseAuth.instance.userChanges().listen((user) {
+      if (user != null) {
+        _loadUserData(); // Reload data from Firestore on user change
+      }
+    });
+  }
+
+  Future<void> _loadUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && mounted) {
+      try {
+        final docSnapshot = await _firestore.collection('users').doc(user.uid).get();
+        if (mounted && docSnapshot.exists) {
+          final data = docSnapshot.data()!;
+          setState(() {
+            _displayName = data['displayName'] ?? user.displayName ?? 'User';
+          });
+        } else {
+          // Fallback if no Firestore doc exists
+          setState(() {
+            _displayName = user.displayName ?? 'User';
+          });
+        }
+      } catch (e) {
+        // Handle potential errors, e.g., network issues
+        if (mounted) {
+          setState(() {
+            _displayName = user.displayName ?? 'User'; // Fallback on error
+          });
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20.0),
           children: [
-            _buildHeader(context, displayName),
+            _buildHeader(context, _displayName),
             const SizedBox(height: 20),
             _buildGamificationArea(context),
             const SizedBox(height: 20),
@@ -32,9 +76,6 @@ class DashboardPage extends StatelessWidget {
   Widget _buildHeader(BuildContext context, String displayName) {
     return Row(
       children: [
-        // Placeholder for the flame icon
-        Icon(Icons.local_fire_department, color: Colors.orange, size: 30),
-        const SizedBox(width: 10),
         Text(
           'Hello $displayName!',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(

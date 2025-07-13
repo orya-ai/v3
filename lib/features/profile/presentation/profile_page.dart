@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/router/routes.dart';
+import '../../auth/data/auth_repository.dart';
 import 'widgets/profile_header.dart';
 import 'widgets/profile_menu_item.dart';
 import 'edit_profile_page.dart';
@@ -52,6 +53,16 @@ class _ProfilePageState extends State<ProfilePage> {
             icon: Icons.privacy_tip_outlined,
             onTap: () {
               context.go(AppRoutes.privacyPolicy);
+            },
+          ),
+          ProfileMenuItem(
+            title: 'Sign Out',
+            icon: Icons.logout,
+            onTap: () async {
+              await AuthRepository().signOut();
+              if (mounted) {
+                context.go(AppRoutes.login);
+              }
             },
           ),
         ],
