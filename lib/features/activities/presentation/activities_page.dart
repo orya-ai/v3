@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ORYA/core/theme/app_theme.dart';
 import '../../../app/router/routes.dart';
 
 class ActivitiesPage extends StatelessWidget {
@@ -7,17 +8,53 @@ class ActivitiesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(20.0),
         children: [
-          const Text('Activities Page', style: TextStyle(fontSize: 20)), // Removed color: Colors.white as Scaffold bg is likely white
+          Center(
+            child: Text(
+              'Activities',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ),
           const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () {
-              context.push(AppRoutes.conversationCards);
-            },
-            child: const Text('Go to Conversation Cards'),
+          GestureDetector(
+            onTap: () => context.push(AppRoutes.conversationCards),
+            child: Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              color: AppTheme.primaryBackgroundColor,
+              elevation: 0,
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Connection Cards",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: AppTheme.primaryTextColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      "Deepen your relationships with meaningful conversations.",
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: AppTheme.primaryTextColor,
+                          ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Align(
+                      alignment: Alignment.centerRight,
+                      child: Icon(Icons.arrow_forward, color: AppTheme.primaryTextColor),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
