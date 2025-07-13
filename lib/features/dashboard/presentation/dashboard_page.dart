@@ -13,6 +13,16 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String _displayName = 'User';
+  int _streakCount = 170; // Example streak count
+  final List<bool> _weeklyProgress = [
+    true, // Monday
+    true, // Tuesday
+    true, // Wednesday
+    true, // Thursday
+    false, // Friday
+    false, // Saturday
+    false, // Sunday
+  ];
 
   @override
   void initState() {
@@ -88,20 +98,70 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildGamificationArea(BuildContext context) {
-    // Placeholder for the main visual area (dragon, window, etc.)
-    return Container(
-      height: 200,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: const Center(
-        child: Text(
-          'Gamification Assets Area',
-          style: TextStyle(color: Colors.grey),
+    final List<String> days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: AppTheme.primaryBackgroundColor,
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 24),
+                const SizedBox(width: 8),
+                Text(
+                  '$_streakCount days',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: AppTheme.primaryTextColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Start a lesson!',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: AppTheme.primaryTextColor.withOpacity(0.7),
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(7, (index) {
+                return _buildDayIndicator(days[index], _weeklyProgress[index]);
+              }),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDayIndicator(String day, bool isCompleted) {
+    return Column(
+      children: [
+        Text(
+          day,
+          style: TextStyle(color: AppTheme.primaryTextColor, fontWeight: FontWeight.bold, fontSize: 12),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isCompleted ? AppTheme.accentColor : Colors.grey.shade300,
+          ),
+          child: isCompleted
+              ? const Icon(Icons.check, color: Colors.white, size: 18)
+              : null,
+        ),
+      ],
     );
   }
 
