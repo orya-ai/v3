@@ -67,6 +67,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             const SizedBox(height: 20),
             _buildGamificationArea(context),
             const SizedBox(height: 20),
+            _buildTodaysConnectionPrompt(context),
+            const SizedBox(height: 20),
             _buildProgressSection(context),
             const SizedBox(height: 30),
             _buildPinnedSection(context),
@@ -109,10 +111,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           children: [
             Row(
               children: [
-                Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 24),
+                Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 32),
                 const SizedBox(width: 8),
                 Text(
-                  '${gamificationState.streakCount} days',
+                  '${gamificationState.streakCount} Days',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: AppTheme.primaryTextColor,
                         fontWeight: FontWeight.bold,
@@ -120,9 +122,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
             Text(
-              'Start a lesson!',
+              'Complete an activity to keep the streak going!',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: AppTheme.primaryTextColor.withOpacity(0.7),
                   ),
@@ -134,6 +136,42 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 return _buildDayIndicator(days[index], gamificationState.weeklyProgress[index], index);
               }),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTodaysConnectionPrompt(BuildContext context) {
+    // In a real app, you'd fetch this from a service or have a list.
+    const String currentPrompt =
+        "What's a small act of kindness you witnessed recently?";
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: AppTheme.primaryBackgroundColor,
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Connection Prompt Of The Day',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: AppTheme.primaryTextColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              currentPrompt,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppTheme.primaryTextColor,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            
           ],
         ),
       ),
