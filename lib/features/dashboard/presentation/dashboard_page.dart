@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ORYA/core/theme/app_theme.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ORYA/features/dashboard/application/gamification_provider.dart';
+import 'package:ORYA/features/dashboard/application/daily_prompt_service.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -16,12 +16,16 @@ class DashboardPage extends ConsumerStatefulWidget {
 
 class _DashboardPageState extends ConsumerState<DashboardPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final DailyConnectionPromptService _promptService = DailyConnectionPromptService();
   String _displayName = 'User';
+  String _dailyPrompt = 'Loading...';
+  String _dailyPromptCategory = '';
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadDailyPrompt();
     // Listen to user changes to update the display name in real-time
     FirebaseAuth.instance.userChanges().listen((user) {
       if (user != null) {
@@ -55,6 +59,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           });
         }
       }
+    }
+  }
+
+  Future<void> _loadDailyPrompt() async {
+    final promptData = await _promptService.getTodaysPrompt();
+    if (mounted) {
+      setState(() {
+        _dailyPromptCategory = promptData['category']?.toUpperCase() ?? 'CONNECT';
+        _dailyPrompt = promptData['prompt'] ?? 'Check back tomorrow for a new prompt!';
+      });
     }
   }
 
@@ -119,7 +133,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 32),
                 const SizedBox(width: 8),
                 Text(
-                  '${gamificationState.streakCount} Days',
+                  '${gamificationState.streakCount} day streak',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: AppTheme.primaryTextColor,
                         fontWeight: FontWeight.bold,
@@ -129,16 +143,20 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Complete an activity to keep the streak going!',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              'COMPLETE AN ACTIVITY',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: AppTheme.primaryTextColor.withOpacity(0.7),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
                   ),
             ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: List.generate(7, (index) {
-                return _buildDayIndicator(days[index], gamificationState.weeklyProgress[index], index);
+                final dayName = days[index];
+                final isCompleted = gamificationState.weeklyProgress.length > index && gamificationState.weeklyProgress[index];
+                return _buildDayIndicator(dayName, isCompleted, index);
               }),
             ),
           ],
@@ -148,34 +166,32 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   Widget _buildTodaysConnectionPrompt(BuildContext context) {
-    // In a real app, you'd fetch this from a service or have a list.
-    const String currentPrompt =
-        "What's a small act of kindness you witnessed recently?";
-
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       color: AppTheme.primaryBackgroundColor,
       elevation: 0,
-      child: Padding(
+      child: Padding( 
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Connection Prompt Of The Day',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              _dailyPromptCategory.isNotEmpty ? _dailyPromptCategory.toUpperCase() : 'TODAY\'S CONNECTION PROMPT',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: AppTheme.primaryTextColor.withOpacity(0.7),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
                   ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 15),
             Text(
-              currentPrompt,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              _dailyPrompt,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppTheme.primaryTextColor,
+                    fontWeight: FontWeight.bold,
+                    height: 1.4,
+                  ),
             ),
-            const SizedBox(height: 16),
-            
           ],
         ),
       ),
