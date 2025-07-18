@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:ORYA/core/theme/app_theme.dart';
+import 'package:orya/core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:ORYA/features/dashboard/application/gamification_provider.dart';
-import 'package:ORYA/features/dashboard/application/daily_prompt_service.dart';
+import 'package:orya/features/dashboard/application/gamification_provider.dart';
+import 'package:orya/features/dashboard/application/daily_prompt_service.dart';
+import 'package:orya/features/dashboard/presentation/activity_calendar_page.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -80,14 +81,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           padding: const EdgeInsets.all(20.0),
           children: [
             _buildHeader(context, _displayName),
-            const SizedBox(height: 20),
+            const SizedBox(height: 30),
             _buildGamificationArea(context),
             const SizedBox(height: 20),
             _buildTodaysConnectionPrompt(context),
-            const SizedBox(height: 20),
-            _buildProgressSection(context),
             const SizedBox(height: 30),
-            _buildPinnedSection(context),
+            // _buildProgressSection(context),
+            // const SizedBox(height: 30),
+            _buildQuests(context),
           ],
         ),
       ),
@@ -119,47 +120,56 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      color: AppTheme.primaryBackgroundColor,
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 32),
-                const SizedBox(width: 8),
-                Text(
-                  '${gamificationState.streakCount} day streak',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: AppTheme.primaryTextColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'COMPLETE AN ACTIVITY',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: AppTheme.primaryTextColor.withOpacity(0.7),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ActivityCalendarPage()),
+        );
+      },
+      child: Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        color: AppTheme.primaryBackgroundColor,
+        elevation: 4,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 32),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${gamificationState.streakCount} day streak',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: AppTheme.primaryTextColor,
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(7, (index) {
-                final dayName = days[index];
-                final isCompleted = gamificationState.weeklyProgress.length > index && gamificationState.weeklyProgress[index];
-                return _buildDayIndicator(dayName, isCompleted, index);
-              }),
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'COMPLETE AN ACTIVITY',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppTheme.primaryTextColor.withOpacity(0.7),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: List.generate(7, (index) {
+                  final dayName = days[index];
+                  final isCompleted = gamificationState.weeklyProgress.length > index && gamificationState.weeklyProgress[index];
+                  return _buildDayIndicator(dayName, isCompleted, index);
+                }),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -170,10 +180,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       color: AppTheme.primaryBackgroundColor,
       elevation: 0,
-      child: Padding( 
+      child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
               _dailyPromptCategory.isNotEmpty ? _dailyPromptCategory.toUpperCase() : 'TODAY\'S CONNECTION PROMPT',
@@ -186,9 +196,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             const SizedBox(height: 15),
             Text(
               _dailyPrompt,
+              textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppTheme.primaryTextColor,
-                    fontWeight: FontWeight.bold,
                     height: 1.4,
                   ),
             ),
@@ -264,7 +274,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  Widget _buildPinnedSection(BuildContext context) {
+  Widget _buildQuests(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -272,7 +282,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Pinned Connections',
+              'Your Quests',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             TextButton(
@@ -281,42 +291,54 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        _buildTaskCard(context, 'Reconnect with an old friend', '10'),
-        const SizedBox(height: 10),
-        _buildTaskCard(context, 'Join a new community group', '10'),
+        const SizedBox(height: 20),
+        _buildQuestCard(context, 'Reconnect with an old friend', '10'),
+        const SizedBox(height: 20),
+        _buildQuestCard(context, 'Join a new community group', '10'),
       ],
     );
   }
 
-  Widget _buildTaskCard(BuildContext context, String title, String points) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 2))],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              // Placeholder for person icon
-              CircleAvatar(backgroundColor: Colors.blue.shade100, radius: 20),
-              const SizedBox(width: 15),
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-            ],
+  Widget _buildQuestCard(BuildContext context, String title, String points) {
+    return Consumer(
+      builder: (context, ref, child) {
+        return Dismissible(
+          key: Key(title), // Use a unique key for each dismissible item
+          onDismissed: (direction) {
+            ref.read(gamificationProvider.notifier).recordActivityAndUpdateStreak();
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$title dismissed')));
+          },
+          background: Container(
+            color: Colors.red,
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: const Icon(Icons.delete, color: Colors.white),
           ),
-          Row(
-            children: [
-              Text(points, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.orange)),
-              const SizedBox(width: 5),
-              const Icon(Icons.star, color: Colors.orange, size: 20),
-            ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryBackgroundColor,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Placeholder for person icon
+                // CircleAvatar(backgroundColor: Colors.blue.shade100, radius: 20),
+                // const SizedBox(width: 15),
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                Row(
+                  children: [
+                    Text(points, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.orange)),
+                    const SizedBox(width: 5),
+                    const Icon(Icons.star, color: Colors.orange, size: 20),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
