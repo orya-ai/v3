@@ -23,7 +23,6 @@ class _ActivityCalendarPageState extends ConsumerState<ActivityCalendarPage> {
     _selectedDay = _focusedDay;
     // Fetch all activities when the page loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(gamificationProvider.notifier).fetchAllActivities();
       _loadUserCreationDate();
     });
   }

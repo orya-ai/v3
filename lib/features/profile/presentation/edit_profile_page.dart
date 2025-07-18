@@ -66,77 +66,64 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppTheme.scaffoldBackgroundColor,
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: AppTheme.primaryTextColor),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                const Expanded(
-                  child: Text(
-                    'Edit Profile',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryTextColor,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 48), // To balance the IconButton
-              ],
-            ),
-            const SizedBox(height: 18),
-            _buildTextField(
-              label: 'Full Name',
-              controller: _nameController,
-            ),
-            const SizedBox(height: 20),
-            _buildTextField(
-              label: 'Email',
-              controller: _emailController,
-              enabled: false, // Don't allow email changes for now
-            ),
-            const Spacer(),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _saveChanges,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryButtonColor,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 2,
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2.0,
-                      ),
-                    )
-                  : const Text(
-                      'Save Changes',
-                      style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold),
-                    ),
-            ),
-            const SizedBox(height: 20),
-          ],
+    return Scaffold(
+      backgroundColor: AppTheme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: const Text('Edit Profile'),
+        backgroundColor: AppTheme.scaffoldBackgroundColor,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppTheme.primaryTextColor),
+          onPressed: () => Navigator.of(context).pop(),
         ),
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 18),
+                      _buildTextField(
+                        label: 'Full Name',
+                        controller: _nameController,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildTextField(
+                        label: 'Email',
+                        controller: _emailController,
+                        enabled: false, // Don't allow email changes for now
+                      ),
+                      const Spacer(),
+                      ElevatedButton(
+                        onPressed: _saveChanges,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryButtonColor,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                        ),
+                        child: const Text(
+                          'Save Changes',
+                          style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ),
     );
   }
 

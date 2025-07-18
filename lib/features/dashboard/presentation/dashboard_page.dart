@@ -127,83 +127,95 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           MaterialPageRoute(builder: (context) => const ActivityCalendarPage()),
         );
       },
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        color: AppTheme.primaryBackgroundColor,
-        elevation: 4,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 32),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${gamificationState.streakCount} day streak',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: AppTheme.primaryTextColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'COMPLETE AN ACTIVITY',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: AppTheme.primaryTextColor.withOpacity(0.7),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(7, (index) {
-                  final dayName = days[index];
-                  final isCompleted = gamificationState.weeklyProgress.length > index && gamificationState.weeklyProgress[index];
-                  return _buildDayIndicator(dayName, isCompleted, index);
-                }),
-              ),
-            ],
-          ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryBackgroundColor,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildTodaysConnectionPrompt(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      color: AppTheme.primaryBackgroundColor,
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 32),
+                const SizedBox(width: 8),
+                Text(
+                  '${gamificationState.streakCount} day streak',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: AppTheme.primaryTextColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             Text(
-              _dailyPromptCategory.isNotEmpty ? _dailyPromptCategory.toUpperCase() : 'TODAY\'S CONNECTION PROMPT',
+              'COMPLETE AN ACTIVITY',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: AppTheme.primaryTextColor.withOpacity(0.7),
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.5,
                   ),
             ),
-            const SizedBox(height: 15),
-            Text(
-              _dailyPrompt,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppTheme.primaryTextColor,
-                    height: 1.4,
-                  ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(7, (index) {
+                final dayName = days[index];
+                final isCompleted = gamificationState.weeklyProgress.length > index && gamificationState.weeklyProgress[index];
+                return _buildDayIndicator(dayName, isCompleted, index);
+              }),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTodaysConnectionPrompt(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryBackgroundColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            _dailyPromptCategory.isNotEmpty ? _dailyPromptCategory.toUpperCase() : 'TODAY\'S CONNECTION PROMPT',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppTheme.primaryTextColor.withOpacity(0.7),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+          ),
+          const SizedBox(height: 15),
+          Text(
+            _dailyPrompt,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: AppTheme.primaryTextColor,
+                  height: 1.4,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -243,9 +255,15 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.primaryBackgroundColor,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -305,7 +323,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         return Dismissible(
           key: Key(title), // Use a unique key for each dismissible item
           onDismissed: (direction) {
-            ref.read(gamificationProvider.notifier).recordActivityAndUpdateStreak();
+            ref.read(gamificationProvider.notifier).recordActivity();
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$title dismissed')));
           },
           background: Container(
@@ -319,6 +337,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             decoration: BoxDecoration(
               color: AppTheme.primaryBackgroundColor,
               borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -8,28 +8,24 @@ class PrivacyPolicyPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 16.0, left: 16.0),
-          child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppTheme.primaryTextColor),
-            onPressed: () => context.go(AppRoutes.profile),
-          ),
+    return Scaffold(
+      backgroundColor: AppTheme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: const Text('Privacy Policy'),
+        backgroundColor: AppTheme.scaffoldBackgroundColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppTheme.primaryTextColor),
+          onPressed: () => context.go(AppRoutes.profile),
         ),
-        const Expanded(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
-            child: SingleChildScrollView(
-              child: Text(
-                'Here is the privacy policy...',
-                style: TextStyle(color: AppTheme.primaryTextColor, fontSize: 16),
-              ),
-            ),
-          ),
+      ),
+      body: const SingleChildScrollView(
+        padding: EdgeInsets.all(16.0),
+        child: Text(
+          'Here is the privacy policy...',
+          style: TextStyle(color: AppTheme.primaryTextColor, fontSize: 16),
         ),
-      ],
+      ),
     );
   }
 }
