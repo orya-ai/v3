@@ -110,7 +110,7 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
     _animationController.forward(from: 0).whenComplete(() {
       HapticFeedback.mediumImpact(); // Add haptic feedback
       ref.read(cardStackControllerProvider.notifier).swipeTopCard();
-      _recordActivity();
+      ref.read(gamificationProvider.notifier).recordActivity();
       _animationController.reset();
       setState(() {
         _dragPosition = Offset.zero;
@@ -123,27 +123,6 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
         .animate(CurvedAnimation(parent: _animationController, curve: Curves.elasticOut));
     
     _animationController.forward(from: 0);
-  }
-
-  Future<void> _recordActivity() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final today = DateTime.now();
-    final dateString = "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}";
-
-    try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('activity')
-          .doc(dateString)
-          .set({'completedAt': FieldValue.serverTimestamp()});
-      // Refresh the gamification data after a successful write
-      ref.read(gamificationProvider.notifier).loadGamificationData();
-    } catch (e) {
-      debugPrint("Failed to record activity: $e");
-    }
   }
 
   @override
