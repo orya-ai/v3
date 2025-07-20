@@ -16,7 +16,7 @@ class TermsPage extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppTheme.primaryTextColor),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => GoRouter.of(context).pop(),
         ),
       ),
       body: const SingleChildScrollView(

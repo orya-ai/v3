@@ -28,12 +28,7 @@ class _ProfilePageState extends State<ProfilePage> {
             title: 'Edit Profile',
             icon: Icons.person_outline,
             onTap: () async {
-              final newName = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => EditProfilePage(currentName: userName),
-                ),
-              );
+              final newName = await context.push(AppRoutes.editProfile, extra: userName);
               if (newName != null && newName is String) {
                 setState(() {
                   userName = newName;
@@ -43,16 +38,16 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           ProfileMenuItem(
             title: 'Terms & Conditions',
-            icon: Icons.description_outlined,
+            icon: Icons.article_outlined,
             onTap: () {
-              context.go(AppRoutes.terms);
+              context.push(AppRoutes.terms);
             },
           ),
           ProfileMenuItem(
             title: 'Privacy Policy',
             icon: Icons.privacy_tip_outlined,
             onTap: () {
-              context.go(AppRoutes.privacyPolicy);
+              context.push(AppRoutes.privacyPolicy);
             },
           ),
           ProfileMenuItem(

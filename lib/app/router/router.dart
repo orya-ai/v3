@@ -12,6 +12,7 @@ import '../../features/auth/presentation/screens/signup_screen.dart';
 import '../../features/dashboard/presentation/dashboard_page.dart';
 import '../../features/legal/privacy_policy_page.dart';
 import '../../features/legal/terms_page.dart';
+import '../../features/profile/presentation/edit_profile_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 
 import '../main_scaffold.dart';
@@ -123,6 +124,18 @@ final routerProvider = Provider<GoRouter>((ref) {
               key: state.pageKey,
               child: const ProfilePage(),
             ),
+            routes: [
+              GoRoute(
+                path: 'edit', // Relative path, becomes /profile/edit
+                pageBuilder: (context, state) {
+                  final currentName = state.extra as String? ?? '';
+                  return MaterialPage(
+                    key: state.pageKey,
+                    child: EditProfilePage(currentName: currentName),
+                  );
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: AppRoutes.privacyPolicy,

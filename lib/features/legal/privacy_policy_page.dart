@@ -16,7 +16,7 @@ class PrivacyPolicyPage extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppTheme.primaryTextColor),
-          onPressed: () => context.go(AppRoutes.profile),
+          onPressed: () => GoRouter.of(context).pop(),
         ),
       ),
       body: const SingleChildScrollView(

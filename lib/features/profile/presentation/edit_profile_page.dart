@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 
 class EditProfilePage extends StatefulWidget {
@@ -75,7 +76,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppTheme.primaryTextColor),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => GoRouter.of(context).pop(),
         ),
       ),
       body: _isLoading
