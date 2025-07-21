@@ -1,160 +1,56 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orya/features/profile/application/user_repository.dart';
+import 'package:orya/features/profile/domain/user.dart';
 import '../../../core/theme/app_theme.dart';
 
-class EditProfilePage extends StatefulWidget {
-  final String currentName;
-  const EditProfilePage({super.key, required this.currentName});
+class EditProfilePage extends ConsumerStatefulWidget {
+  const EditProfilePage({super.key});
 
   @override
-  _EditProfilePageState createState() => _EditProfilePageState();
+  ConsumerState<EditProfilePage> createState() => _EditProfilePageState();
 }
 
-class _EditProfilePageState extends State<EditProfilePage> {
+class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
   late TextEditingController _nameController;
   late TextEditingController _emailController;
-
-  User? _user;
-  bool _isLoading = true; // Start with loading true
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _user = _auth.currentUser;
     _nameController = TextEditingController();
     _emailController = TextEditingController();
-    _loadUserData();
-  }
-
-  Future<void> _loadUserData() async {
-    if (_user != null) {
-      try {
-        final docSnapshot = await _firestore.collection('users').doc(_user!.uid).get();
-        if (mounted && docSnapshot.exists) {
-          final data = docSnapshot.data()!;
-          _nameController.text = data['displayName'] ?? _user!.displayName ?? '';
-          _emailController.text = _user!.email ?? '';
-        } else {
-          // Handle case where user doc doesn't exist but auth user does
-          _nameController.text = _user!.displayName ?? widget.currentName;
-          _emailController.text = _user!.email ?? '';
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to load user data: $e')),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      }
-    } else {
-      setState(() {
-        _isLoading = false;
-      });
-    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('Edit Profile'),
-        backgroundColor: AppTheme.scaffoldBackgroundColor,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.primaryTextColor),
-          onPressed: () => GoRouter.of(context).pop(),
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 18),
-                      _buildTextField(
-                        label: 'Full Name',
-                        controller: _nameController,
-                      ),
-                      const SizedBox(height: 20),
-                      _buildTextField(
-                        label: 'Email',
-                        controller: _emailController,
-                        enabled: false, // Don't allow email changes for now
-                      ),
-                      const Spacer(),
-                      ElevatedButton(
-                        onPressed: _saveChanges,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryButtonColor,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 2,
-                        ),
-                        child: const Text(
-                          'Save Changes',
-                          style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-    );
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    super.dispose();
   }
 
-  Future<void> _saveChanges() async {
-    if (!_formKey.currentState!.validate()) {
+  Future<void> _saveChanges(UserModel currentUser) async {
+    if (!_formKey.currentState!.validate() || _isSaving) {
       return;
     }
 
     setState(() {
-      _isLoading = true;
+      _isSaving = true;
     });
 
     try {
       final newName = _nameController.text.trim();
-
-      // The call to update Firebase Auth is no longer needed here.
-      // The onUserUpdate Cloud Function will handle it automatically.
-      // await _user?.updateDisplayName(newName);
-
-      // Update name in Firestore - this is now the single operation.
-      await _firestore.collection('users').doc(_user!.uid).update({
-        'displayName': newName,
-        'displayName_lowercase': newName.toLowerCase(),
-      });
+      final updatedUser = currentUser.copyWith(displayName: newName);
+      await ref.read(userRepoProvider).updateUser(updatedUser);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully')),
         );
-        Navigator.pop(context, newName);
+        context.pop();
       }
     } catch (e) {
       if (mounted) {
@@ -165,10 +61,84 @@ class _EditProfilePageState extends State<EditProfilePage> {
     } finally {
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _isSaving = false;
         });
       }
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final userAsyncValue = ref.watch(userProvider);
+
+    return Scaffold(
+      backgroundColor: AppTheme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: const Text('Edit Profile'),
+        backgroundColor: AppTheme.scaffoldBackgroundColor,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppTheme.primaryTextColor),
+          onPressed: () => context.pop(),
+        ),
+      ),
+      body: userAsyncValue.when(
+        data: (user) {
+          _nameController.text = user.displayName;
+          _emailController.text = user.email;
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 18),
+                    _buildTextField(
+                      label: 'Full Name',
+                      controller: _nameController,
+                    ),
+                    const SizedBox(height: 20),
+                    _buildTextField(
+                      label: 'Email',
+                      controller: _emailController,
+                      enabled: false,
+                    ),
+                    const Spacer(),
+                    ElevatedButton(
+                      onPressed: () => _saveChanges(user),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryButtonColor,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: _isSaving
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text(
+                              'Save Changes',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Failed to load user data: $error')),
+      ),
+    );
   }
 
   Widget _buildTextField({

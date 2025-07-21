@@ -4,7 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:orya/core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:orya/features/dashboard/application/gamification_provider.dart';
+import 'package:orya/features/dashboard/application/gamification_repository.dart';
+import 'package:orya/features/profile/application/user_repository.dart';
 import 'package:orya/features/dashboard/application/daily_prompt_service.dart';
 import 'package:orya/features/dashboard/presentation/activity_calendar_page.dart';
 
@@ -16,51 +17,19 @@ class DashboardPage extends ConsumerStatefulWidget {
 }
 
 class _DashboardPageState extends ConsumerState<DashboardPage> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final DailyConnectionPromptService _promptService = DailyConnectionPromptService();
-  String _displayName = 'User';
   String _dailyPrompt = 'Loading...';
   String _dailyPromptCategory = '';
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
     _loadDailyPrompt();
-    // Listen to user changes to update the display name in real-time
-    FirebaseAuth.instance.userChanges().listen((user) {
-      if (user != null) {
-        _loadUserData(); // Reload data from Firestore on user change
-        ref.read(gamificationProvider.notifier).loadGamificationData();
-      }
+    // Check and update streak status when the dashboard loads.
+    // The recordActivity method is now idempotent and safe to call.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(gamificationRepoProvider).recordActivity();
     });
-  }
-
-  Future<void> _loadUserData() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null && mounted) {
-      try {
-        final docSnapshot = await _firestore.collection('users').doc(user.uid).get();
-        if (mounted && docSnapshot.exists) {
-          final data = docSnapshot.data()!;
-          setState(() {
-            _displayName = data['displayName'] ?? user.displayName ?? 'User';
-          });
-        } else {
-          // Fallback if no Firestore doc exists
-          setState(() {
-            _displayName = user.displayName ?? 'User';
-          });
-        }
-      } catch (e) {
-        // Handle potential errors, e.g., network issues
-        if (mounted) {
-          setState(() {
-            _displayName = user.displayName ?? 'User'; // Fallback on error
-          });
-        }
-      }
-    }
   }
 
   Future<void> _loadDailyPrompt() async {
@@ -75,23 +44,27 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20.0),
-          children: [
-            _buildHeader(context, _displayName),
-            const SizedBox(height: 30),
-            _buildGamificationArea(context),
-            const SizedBox(height: 20),
-            _buildTodaysConnectionPrompt(context),
-            const SizedBox(height: 30),
-            // _buildProgressSection(context),
-            // const SizedBox(height: 30),
-            _buildQuests(context),
-          ],
+    final userAsyncValue = ref.watch(userProvider);
+
+    return userAsyncValue.when(
+      data: (user) => Container(
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(20.0),
+            children: [
+              _buildHeader(context, user.displayName),
+              const SizedBox(height: 30),
+              _buildGamificationArea(context),
+              const SizedBox(height: 20),
+              _buildTodaysConnectionPrompt(context),
+              const SizedBox(height: 30),
+              // _buildQuests(context),
+            ],
+          ),
         ),
       ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(child: Text('Error: $error')),
     );
   }
 
@@ -116,68 +89,60 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final daySymbols = DateFormat.E().dateSymbols.STANDALONESHORTWEEKDAYS;
     final List<String> days = [...daySymbols.sublist(1), daySymbols[0]];
 
-    if (gamificationState.isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const ActivityCalendarPage()),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryBackgroundColor,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return gamificationState.when(
+      data: (gamificationData) => GestureDetector(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const ActivityCalendarPage()),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryBackgroundColor,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 32),
-                const SizedBox(width: 8),
-                Text(
-                  '${gamificationState.streakCount} day streak',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: AppTheme.primaryTextColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'COMPLETE AN ACTIVITY',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: AppTheme.primaryTextColor.withOpacity(0.7),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5,
+                  Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 32
                   ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(7, (index) {
-                final dayName = days[index];
-                final isCompleted = gamificationState.weeklyProgress.length > index && gamificationState.weeklyProgress[index];
-                return _buildDayIndicator(dayName, isCompleted, index);
-              }),
-            ),
-          ],
+                  const SizedBox(width: 8),
+                  Text(
+                    '${gamificationData.streak} day streak!', 
+                    style: Theme.of(context).textTheme.titleLarge
+                  ),
+              ],
+              ),    
+              const SizedBox(height: 15),
+              Text('COMPLETE AN ACTIVITY',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: AppTheme.primaryTextColor.withOpacity(0.7),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+              ),
+
+              const SizedBox(height: 15),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: List.generate(7, (index) {
+                  return _buildDayIndicator(days[index], gamificationData.completedDays[index], index);
+                }),
+              ),
+
+              const SizedBox(height: 15),
+
+            ],
+          ),
         ),
       ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Text('Error: $err'),
     );
   }
 
@@ -215,6 +180,30 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   height: 1.4,
                 ),
           ),
+          const SizedBox(height: 20),
+          GestureDetector(
+            onLongPress: () {
+              // Handle the long press action
+              ref.read(gamificationRepoProvider).recordActivity();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Activity marked as completed!')),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryButtonColor, // Use a dark color from the theme
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Text(
+                'PRESS AND HOLD TO MARK AS COMPLETED',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -251,47 +240,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  Widget _buildProgressSection(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryBackgroundColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'You\'re on level 1 - Social Starter',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: const LinearProgressIndicator(
-              value: 0.3, // Placeholder progress
-              minHeight: 12,
-              backgroundColor: Color(0xFFF0EAE6),
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.orangeAccent),
-            ),
-          ),
-          const SizedBox(height: 5),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text('15 / 50', style: Theme.of(context).textTheme.bodySmall),
-          ),
-        ],
-      ),
-    );
-  }
-
+/*
   Widget _buildQuests(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -323,7 +272,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         return Dismissible(
           key: Key(title), // Use a unique key for each dismissible item
           onDismissed: (direction) {
-            ref.read(gamificationProvider.notifier).recordActivity();
+            ref.read(gamificationRepoProvider).recordActivity();
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$title dismissed')));
           },
           background: Container(
@@ -366,4 +315,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       },
     );
   }
+
+  */
+
 }

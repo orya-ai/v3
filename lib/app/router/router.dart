@@ -128,10 +128,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'edit', // Relative path, becomes /profile/edit
                 pageBuilder: (context, state) {
-                  final currentName = state.extra as String? ?? '';
                   return MaterialPage(
                     key: state.pageKey,
-                    child: EditProfilePage(currentName: currentName),
+                    child: const EditProfilePage(),
                   );
                 },
               ),
