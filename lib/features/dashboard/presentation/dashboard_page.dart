@@ -1,13 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:orya/core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:orya/features/dashboard/application/gamification_repository.dart';
 import 'package:orya/features/profile/application/user_repository.dart';
+import 'package:orya/core/theme/app_theme.dart';
+import 'package:vibration/vibration.dart';
 import 'package:orya/features/dashboard/application/daily_prompt_service.dart';
 import 'package:orya/features/dashboard/presentation/activity_calendar_page.dart';
+import 'package:intl/intl.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -16,15 +16,33 @@ class DashboardPage extends ConsumerStatefulWidget {
   ConsumerState<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends ConsumerState<DashboardPage> {
-  final DailyConnectionPromptService _promptService = DailyConnectionPromptService();
+class _DashboardPageState extends ConsumerState<DashboardPage>
+    with SingleTickerProviderStateMixin {
   String _dailyPrompt = 'Loading...';
   String _dailyPromptCategory = '';
+  bool _isCompleted = false;
+  bool _isHolding = false;
+  late AnimationController _controller;
+  late Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
     _loadDailyPrompt();
+
+    _controller = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+
+    _animation = Tween<double>(begin: 0, end: 1).animate(_controller)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          setState(() {
+            _isCompleted = true;
+          });
+        }
+      });
     // Check and update streak status when the dashboard loads.
     // The recordActivity method is now idempotent and safe to call.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -32,8 +50,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     });
   }
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadDailyPrompt() async {
-    final promptData = await _promptService.getTodaysPrompt();
+    final promptData = await DailyConnectionPromptService().getTodaysPrompt();
     if (mounted) {
       setState(() {
         _dailyPromptCategory = promptData['category']?.toUpperCase() ?? 'CONNECT';
@@ -160,52 +184,115 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            _dailyPromptCategory.isNotEmpty ? _dailyPromptCategory.toUpperCase() : 'TODAY\'S CONNECTION PROMPT',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppTheme.primaryTextColor.withOpacity(0.7),
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
+      child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, child) {
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                Transform.scale(
+                  scale: 1 + (_animation.value * 15), // Grow to cover the container
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryButtonColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
                 ),
-          ),
-          const SizedBox(height: 15),
-          Text(
-            _dailyPrompt,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppTheme.primaryTextColor,
-                  height: 1.4,
-                ),
-          ),
-          const SizedBox(height: 20),
-          GestureDetector(
-            onLongPress: () {
-              // Handle the long press action
-              ref.read(gamificationRepoProvider).recordActivity();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Activity marked as completed!')),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryButtonColor, // Use a dark color from the theme
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: Text(
-                'PRESS AND HOLD TO MARK AS COMPLETED',
+                if (_isCompleted)
+                  _buildCompletedView()
+                else
+                  child!,
+              ],
+            );
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                _dailyPromptCategory.isNotEmpty
+                    ? _dailyPromptCategory.toUpperCase()
+                    : 'TODAY\'S CONNECTION PROMPT',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: Colors.white,
+                      color: AppTheme.primaryTextColor.withOpacity(0.7),
                       fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
                     ),
               ),
-            ),
+              const SizedBox(height: 15),
+              Text(
+                _dailyPrompt,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppTheme.primaryTextColor,
+                      height: 1.4,
+                    ),
+              ),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTapDown: (_) {
+                  setState(() {
+                    _isHolding = true;
+                  });
+                  _controller.forward();
+                  Vibration.vibrate(duration: 2000);
+                },
+                onTapUp: (_) {
+                  setState(() {
+                    _isHolding = false;
+                  });
+                  if (_controller.status != AnimationStatus.completed) {
+                    _controller.reverse();
+                    Vibration.cancel();
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryButtonColor,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Text(
+                    'PRESS AND HOLD TO MARK AS COMPLETED',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ),
+              ),
+            ],
+          )),
+    );
+  }
+
+  Widget _buildCompletedView() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          'ACTIVITY COMPLETED',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 10),
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _isCompleted = false;
+              _controller.reset();
+            });
+          },
+          child: const Text(
+            'Undo',
+            style: TextStyle(color: Colors.white70),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -317,5 +404,4 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   */
-
 }
