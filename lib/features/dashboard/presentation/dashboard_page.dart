@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orya/features/dashboard/application/gamification_repository.dart';
 import 'package:orya/features/profile/application/user_repository.dart';
@@ -23,6 +24,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
   String _dailyPromptCategory = '';
   bool _isCompleted = false;
   late AnimationController _controller;
+  late Animation<double> _animation;
 
   @override
   void initState() {
@@ -30,14 +32,19 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     _loadDailyPrompt();
 
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 750),
       vsync: this,
+    );
+
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.elasticOut,
     )..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
           setState(() {
             _isCompleted = true;
           });
-          Vibration.vibrate(pattern: [0, 50, 80, 250], intensities: [100, 255]);
+          HapticFeedback.heavyImpact();
         }
       });
 
@@ -191,10 +198,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
               ),
               const SizedBox(height: 15),
               AnimatedBuilder(
-                animation: _controller,
+                animation: _animation,
                 builder: (context, child) {
                   return Opacity(
-                    opacity: 1.0 - _controller.value,
+                    opacity: (1.0 - _animation.value).clamp(0.0, 1.0),
                     child: Text(
                       _dailyPrompt,
                       textAlign: TextAlign.center,
@@ -213,17 +220,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
           child: Align(
             alignment: Alignment.bottomCenter,
             child: AnimatedBuilder(
-              animation: _controller,
+              animation: _animation,
               builder: (context, child) {
                 final width = lerpDouble(MediaQuery.of(context).size.width - 80,
-                    MediaQuery.of(context).size.width - 40, _controller.value)!;
-                final height = lerpDouble(50, 240, _controller.value)!;
-                final radius = lerpDouble(30, 20, _controller.value)!;
+                    MediaQuery.of(context).size.width - 40, _animation.value)!;
+                final height = lerpDouble(50, 240, _animation.value)!;
+                final radius = lerpDouble(30, 20, _animation.value)!;
 
                 return GestureDetector(
                   onTapDown: (_) {
                     _controller.forward();
-                    Vibration.vibrate(duration: 2000);
+                    Vibration.vibrate(duration: 1000, amplitude: 128);
                   },
                   onTapUp: (_) {
                     if (_controller.status != AnimationStatus.completed) {
@@ -321,89 +328,93 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     );
   }
 
-  /*
-  Widget _buildQuests(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Your Quests',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            TextButton(
-              onPressed: () {},
-              child: const Text('View all',
-                  style: TextStyle(color: Colors.orange)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        _buildQuestCard(context, 'Reconnect with an old friend', '10'),
-        const SizedBox(height: 20),
-        _buildQuestCard(context, 'Join a new community group', '10'),
-      ],
-    );
-  }
 
-  Widget _buildQuestCard(BuildContext context, String title, String points) {
-    return Consumer(
-      builder: (context, ref, child) {
-        return Dismissible(
-          key: Key(title),
-          onDismissed: (direction) {
-            ref.read(gamificationRepoProvider).recordActivity();
-            ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('$title dismissed')));
-          },
-          background: Container(
-            color: Colors.red,
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: const Icon(Icons.delete, color: Colors.white),
+  /*
+
+    Widget _buildQuests(BuildContext context) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Your Quests',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              TextButton(
+                onPressed: () {},
+                child: const Text('View all',
+                    style: TextStyle(color: Colors.orange)),
+              ),
+            ],
           ),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryBackgroundColor,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 20,
-                  offset: const Offset(0, 5),
-                ),
-              ],
+          const SizedBox(height: 20),
+          _buildQuestCard(context, 'Reconnect with an old friend', '10'),
+          const SizedBox(height: 20),
+          _buildQuestCard(context, 'Join a new community group', '10'),
+        ],
+      );
+    }
+
+    Widget _buildQuestCard(BuildContext context, String title, String points) {
+      return Consumer(
+        builder: (context, ref, child) {
+          return Dismissible(
+            key: Key(title),
+            onDismissed: (direction) {
+              ref.read(gamificationRepoProvider).recordActivity();
+              ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('$title dismissed')));
+            },
+            background: Container(
+              color: Colors.red,
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: const Icon(Icons.delete, color: Colors.white),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(title,
-                    style: Theme.of(context).textTheme.titleMedium),
-                Row(
-                  children: [
-                    Text(points,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange)),
-                    const SizedBox(width: 5),
-                    const Icon(Icons.star, color: Colors.orange, size: 20),
-                  ],
-                ),
-              ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryBackgroundColor,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 20,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(title,
+                      style: Theme.of(context).textTheme.titleMedium),
+                  Row(
+                    children: [
+                      Text(points,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange)),
+                      const SizedBox(width: 5),
+                      const Icon(Icons.star, color: Colors.orange, size: 20),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
-    );
-  }
+          );
+        },
+      );
+    }
+    
   */
+
 }
