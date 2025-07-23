@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orya/features/dashboard/application/gamification_repository.dart';
@@ -21,9 +22,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
   String _dailyPrompt = 'Loading...';
   String _dailyPromptCategory = '';
   bool _isCompleted = false;
-  bool _isHolding = false;
   late AnimationController _controller;
-  late Animation<double> _animation;
 
   @override
   void initState() {
@@ -31,20 +30,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     _loadDailyPrompt();
 
     _controller = AnimationController(
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 2000),
       vsync: this,
-    );
-
-    _animation = Tween<double>(begin: 0, end: 1).animate(_controller)
-      ..addStatusListener((status) {
+    )..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
           setState(() {
             _isCompleted = true;
           });
+          Vibration.vibrate(pattern: [0, 50, 80, 250], intensities: [100, 255]);
         }
       });
-    // Check and update streak status when the dashboard loads.
-    // The recordActivity method is now idempotent and safe to call.
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(gamificationRepoProvider).recordActivity();
     });
@@ -60,8 +56,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     final promptData = await DailyConnectionPromptService().getTodaysPrompt();
     if (mounted) {
       setState(() {
-        _dailyPromptCategory = promptData['category']?.toUpperCase() ?? 'CONNECT';
-        _dailyPrompt = promptData['prompt'] ?? 'Check back tomorrow for a new prompt!';
+        _dailyPromptCategory =
+            promptData['category']?.toUpperCase() ?? 'CONNECT';
+        _dailyPrompt =
+            promptData['prompt'] ?? 'Check back tomorrow for a new prompt!';
       });
     }
   }
@@ -71,20 +69,18 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     final userAsyncValue = ref.watch(userProvider);
 
     return userAsyncValue.when(
-      data: (user) => Container(
-        child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(20.0),
-            children: [
-              _buildHeader(context, user.displayName),
-              const SizedBox(height: 30),
-              _buildGamificationArea(context),
-              const SizedBox(height: 20),
-              _buildTodaysConnectionPrompt(context),
-              const SizedBox(height: 30),
-              // _buildQuests(context),
-            ],
-          ),
+      data: (user) => SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20.0),
+          children: [
+            _buildHeader(context, user.displayName),
+            const SizedBox(height: 30),
+            _buildGamificationArea(context),
+            const SizedBox(height: 20),
+            _buildTodaysConnectionPrompt(context),
+            const SizedBox(height: 30),
+            // _buildQuests(context),
+          ],
         ),
       ),
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -108,8 +104,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
 
   Widget _buildGamificationArea(BuildContext context) {
     final gamificationState = ref.watch(gamificationProvider);
-
-    // Use intl to get localized day names, starting with Monday
     final daySymbols = DateFormat.E().dateSymbols.STANDALONESHORTWEEKDAYS;
     final List<String> days = [...daySymbols.sublist(1), daySymbols[0]];
 
@@ -130,37 +124,34 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                  Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 32
-                  ),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 32),
                   const SizedBox(width: 8),
                   Text(
-                    '${gamificationData.streak} day streak!', 
-                    style: Theme.of(context).textTheme.titleLarge
+                    '${gamificationData.streak} day streak!',
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-              ],
-              ),    
-              const SizedBox(height: 15),
-              Text('COMPLETE AN ACTIVITY',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppTheme.primaryTextColor.withOpacity(0.7),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
+                ],
               ),
-
               const SizedBox(height: 15),
-
+              Text(
+                'COMPLETE AN ACTIVITY',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppTheme.primaryTextColor.withOpacity(0.7),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                    ),
+              ),
+              const SizedBox(height: 15),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: List.generate(7, (index) {
-                  return _buildDayIndicator(days[index], gamificationData.completedDays[index], index);
+                  return _buildDayIndicator(
+                      days[index], gamificationData.completedDays[index], index);
                 }),
               ),
-
               const SizedBox(height: 15),
-
             ],
           ),
         ),
@@ -171,48 +162,27 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
   }
 
   Widget _buildTodaysConnectionPrompt(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryBackgroundColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 5),
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 80),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryBackgroundColor,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: AnimatedBuilder(
-          animation: _animation,
-          builder: (context, child) {
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                Transform.scale(
-                  scale: 1 + (_animation.value * 15), // Grow to cover the container
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryButtonColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-                if (_isCompleted)
-                  _buildCompletedView()
-                else
-                  child!,
-              ],
-            );
-          },
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                _dailyPromptCategory.isNotEmpty
-                    ? _dailyPromptCategory.toUpperCase()
-                    : 'TODAY\'S CONNECTION PROMPT',
+                _dailyPromptCategory,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: AppTheme.primaryTextColor.withOpacity(0.7),
                       fontWeight: FontWeight.bold,
@@ -220,56 +190,81 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                     ),
               ),
               const SizedBox(height: 15),
-              Text(
-                _dailyPrompt,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppTheme.primaryTextColor,
-                      height: 1.4,
+              AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  return Opacity(
+                    opacity: 1.0 - _controller.value,
+                    child: Text(
+                      _dailyPrompt,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: AppTheme.primaryTextColor,
+                            height: 1.4,
+                          ),
                     ),
-              ),
-              const SizedBox(height: 20),
-              GestureDetector(
-                onTapDown: (_) {
-                  setState(() {
-                    _isHolding = true;
-                  });
-                  _controller.forward();
-                  Vibration.vibrate(duration: 2000);
+                  );
                 },
-                onTapUp: (_) {
-                  setState(() {
-                    _isHolding = false;
-                  });
-                  if (_controller.status != AnimationStatus.completed) {
-                    _controller.reverse();
-                    Vibration.cancel();
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 24),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryButtonColor,
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Text(
-                    'PRESS AND HOLD TO MARK AS COMPLETED',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                ),
               ),
             ],
-          )),
+          ),
+        ),
+        Positioned.fill(
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                final width = lerpDouble(MediaQuery.of(context).size.width - 80,
+                    MediaQuery.of(context).size.width - 40, _controller.value)!;
+                final height = lerpDouble(50, 240, _controller.value)!;
+                final radius = lerpDouble(30, 20, _controller.value)!;
+
+                return GestureDetector(
+                  onTapDown: (_) {
+                    _controller.forward();
+                    Vibration.vibrate(duration: 2000);
+                  },
+                  onTapUp: (_) {
+                    if (_controller.status != AnimationStatus.completed) {
+                      _controller.reverse();
+                      Vibration.cancel();
+                    }
+                  },
+                  child: Container(
+                    width: width,
+                    height: height,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryButtonColor,
+                      borderRadius: BorderRadius.circular(radius),
+                    ),
+                    alignment: Alignment.center,
+                    child: _isCompleted
+                        ? _buildCompletedView()
+                        : Text(
+                            'PRESS AND HOLD TO MARK AS COMPLETED',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelMedium
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                            textAlign: TextAlign.center,
+                          ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildCompletedView() {
     return Column(
+      key: const ValueKey('completed'),
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
@@ -298,7 +293,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
 
   Widget _buildDayIndicator(String day, bool isCompleted, int index) {
     final today = DateTime.now();
-    // In Dart, Monday is 1 and Sunday is 7. We map this to our 0-indexed list where Monday is 0.
     final isCurrentDay = (today.weekday - 1) == index;
 
     return Column(
@@ -327,7 +321,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     );
   }
 
-/*
+  /*
   Widget _buildQuests(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,11 +331,15 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
           children: [
             Text(
               'Your Quests',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             TextButton(
               onPressed: () {},
-              child: const Text('View all', style: TextStyle(color: Colors.orange)),
+              child: const Text('View all',
+                  style: TextStyle(color: Colors.orange)),
             ),
           ],
         ),
@@ -357,10 +355,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     return Consumer(
       builder: (context, ref, child) {
         return Dismissible(
-          key: Key(title), // Use a unique key for each dismissible item
+          key: Key(title),
           onDismissed: (direction) {
             ref.read(gamificationRepoProvider).recordActivity();
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$title dismissed')));
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('$title dismissed')));
           },
           background: Container(
             color: Colors.red,
@@ -384,13 +383,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Placeholder for person icon
-                // CircleAvatar(backgroundColor: Colors.blue.shade100, radius: 20),
-                // const SizedBox(width: 15),
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                Text(title,
+                    style: Theme.of(context).textTheme.titleMedium),
                 Row(
                   children: [
-                    Text(points, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.orange)),
+                    Text(points,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange)),
                     const SizedBox(width: 5),
                     const Icon(Icons.star, color: Colors.orange, size: 20),
                   ],
@@ -402,6 +405,5 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
       },
     );
   }
-
   */
 }
