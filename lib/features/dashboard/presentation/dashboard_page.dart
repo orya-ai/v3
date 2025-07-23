@@ -78,6 +78,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     return userAsyncValue.when(
       data: (user) => SafeArea(
         child: ListView(
+          clipBehavior: Clip.none,
           padding: const EdgeInsets.all(20.0),
           children: [
             _buildHeader(context, user.displayName),
@@ -170,6 +171,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
 
   Widget _buildTodaysConnectionPrompt(BuildContext context) {
     return Stack(
+      clipBehavior: Clip.none,
       children: [
         Container(
           width: double.infinity,
@@ -223,8 +225,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
               animation: _animation,
               builder: (context, child) {
                 final width = lerpDouble(MediaQuery.of(context).size.width - 80,
-                    MediaQuery.of(context).size.width - 40, _animation.value)!;
-                final height = lerpDouble(50, 240, _animation.value)!;
+                    MediaQuery.of(context).size.width, _animation.value)!;
+                final height = lerpDouble(50, 280, _animation.value)!;
                 final radius = lerpDouble(30, 20, _animation.value)!;
 
                 return GestureDetector(
