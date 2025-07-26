@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orya/features/dashboard/domain/gamification_model.dart';
+import 'package:orya/features/dashboard/domain/quest_model.dart';
 
 class GamificationRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -104,7 +105,6 @@ class GamificationRepository {
     return updatedDays;
   }
 
-
   Future<void> useStreakFreeze() async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('User not logged in');
@@ -115,10 +115,42 @@ class GamificationRepository {
         .doc('data');
     await docRef.update({'streakFreezeActive': true});
   }
+
+  Future<void> addCompletedQuest(Quest quest) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+    final collectionRef = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('quests');
+    await collectionRef.add(quest.toFirestore());
+  }
+
+  Stream<List<Quest>> getCompletedQuests() {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return Stream.error('User not logged in');
+    }
+    final collectionRef = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('quests')
+        .orderBy('completedAt', descending: true);
+
+    return collectionRef.snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return Quest.fromFirestore(doc.data());
+      }).toList();
+    });
+  }
 }
 
 final gamificationRepoProvider = Provider((ref) => GamificationRepository());
 
 final gamificationProvider = StreamProvider.autoDispose<GamificationData>((ref) {
   return ref.watch(gamificationRepoProvider).getGamificationData();
+});
+
+final questsProvider = StreamProvider.autoDispose<List<Quest>>((ref) {
+  return ref.watch(gamificationRepoProvider).getCompletedQuests();
 });

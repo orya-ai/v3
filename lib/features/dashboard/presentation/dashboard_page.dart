@@ -10,6 +10,7 @@ import 'package:vibration/vibration.dart';
 import 'package:orya/features/dashboard/application/daily_prompt_service.dart';
 import 'package:orya/features/dashboard/presentation/activity_calendar_page.dart';
 import 'package:intl/intl.dart';
+import 'package:orya/features/dashboard/presentation/quests_page.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -45,6 +46,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
             _isCompleted = true;
           });
           HapticFeedback.heavyImpact();
+        } else if (status == AnimationStatus.dismissed) {
+          setState(() {
+            _isCompleted = false;
+          });
         }
       });
 
@@ -86,6 +91,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
             _buildGamificationArea(context),
             const SizedBox(height: 20),
             _buildTodaysConnectionPrompt(context),
+            const SizedBox(height: 20),
+            _buildConnectionJourneyButton(context),
             const SizedBox(height: 30),
             // _buildQuests(context),
           ],
@@ -174,6 +181,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
       clipBehavior: Clip.none,
       children: [
         Container(
+          clipBehavior: Clip.none,
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 80),
           decoration: BoxDecoration(
@@ -224,17 +232,24 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
             child: AnimatedBuilder(
               animation: _animation,
               builder: (context, child) {
-                final width = lerpDouble(MediaQuery.of(context).size.width - 80,
-                    MediaQuery.of(context).size.width, _animation.value)!;
-                final height = lerpDouble(50, 280, _animation.value)!;
+                final endWidth = MediaQuery.of(context).size.width;
+                final endHeight = 280.0;
+
+                final width = _isCompleted
+                    ? endWidth
+                    : lerpDouble(MediaQuery.of(context).size.width - 80,
+                        endWidth, _animation.value)!;
+                final height = _isCompleted
+                    ? endHeight
+                    : lerpDouble(50, endHeight, _animation.value)!;
                 final radius = lerpDouble(30, 20, _animation.value)!;
 
                 return GestureDetector(
-                  onTapDown: (_) {
+                  onTapDown: _isCompleted ? null : (_) {
                     _controller.forward();
                     Vibration.vibrate(duration: 1000, amplitude: 128);
                   },
-                  onTapUp: (_) {
+                  onTapUp: _isCompleted ? null : (_) {
                     if (_controller.status != AnimationStatus.completed) {
                       _controller.reverse();
                       Vibration.cancel();
@@ -330,93 +345,71 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     );
   }
 
-
-  /*
-
-    Widget _buildQuests(BuildContext context) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Your Quests',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              TextButton(
-                onPressed: () {},
-                child: const Text('View all',
-                    style: TextStyle(color: Colors.orange)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _buildQuestCard(context, 'Reconnect with an old friend', '10'),
-          const SizedBox(height: 20),
-          _buildQuestCard(context, 'Join a new community group', '10'),
-        ],
-      );
-    }
-
-    Widget _buildQuestCard(BuildContext context, String title, String points) {
-      return Consumer(
-        builder: (context, ref, child) {
-          return Dismissible(
-            key: Key(title),
-            onDismissed: (direction) {
-              ref.read(gamificationRepoProvider).recordActivity();
-              ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$title dismissed')));
-            },
-            background: Container(
-              color: Colors.red,
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: const Icon(Icons.delete, color: Colors.white),
+  Widget _buildConnectionJourneyButton(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const QuestsPage()),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryBackgroundColor,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 5),
             ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.primaryBackgroundColor,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 20,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
+                color: AppTheme.accentColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Icon(
+                Icons.timeline,
+                color: AppTheme.accentColor,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: Theme.of(context).textTheme.titleMedium),
-                  Row(
-                    children: [
-                      Text(points,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.orange)),
-                      const SizedBox(width: 5),
-                      const Icon(Icons.star, color: Colors.orange, size: 20),
-                    ],
+                  Text(
+                    'My Connection Journey',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: AppTheme.primaryTextColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Track your progress and milestones',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.primaryTextColor.withOpacity(0.7),
+                        ),
                   ),
                 ],
               ),
             ),
-          );
-        },
-      );
-    }
-    
-  */
-
+            Icon(
+              Icons.arrow_forward_ios,
+              color: AppTheme.primaryTextColor.withOpacity(0.3),
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
