@@ -13,6 +13,12 @@ class GamificationData {
     required this.completedDays,
   });
 
+  bool get isDailyQuestCompleted {
+    final now = DateTime.now();
+    final todayIndex = (now.weekday - 1) % 7; // Monday = 0, Sunday = 6
+    return completedDays[todayIndex];
+  }
+
   factory GamificationData.fromFirestore(Map<String, dynamic> data) {
     return GamificationData(
       streak: data['streak'] ?? 0,

@@ -11,6 +11,7 @@ import 'package:orya/features/dashboard/application/daily_prompt_service.dart';
 import 'package:orya/features/dashboard/presentation/activity_calendar_page.dart';
 import 'package:intl/intl.dart';
 import 'package:orya/features/dashboard/presentation/quests_page.dart';
+import 'package:orya/features/dashboard/domain/quest_model.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -46,6 +47,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
             _isCompleted = true;
           });
           HapticFeedback.heavyImpact();
+          _createQuestFromDailyPrompt();
         } else if (status == AnimationStatus.dismissed) {
           setState(() {
             _isCompleted = false;
@@ -411,5 +413,19 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
         ),
       ),
     );
+  }
+
+  Future<void> _createQuestFromDailyPrompt() async {
+    try {
+      final quest = Quest(
+        title: _dailyPrompt,
+        points: '10', // You can adjust the points as needed
+        completedAt: DateTime.now(),
+      );
+      
+      await ref.read(gamificationRepoProvider).addCompletedQuest(quest);
+    } catch (e) {
+      print('Error creating quest: $e');
+    }
   }
 }

@@ -143,6 +143,118 @@ class GamificationRepository {
       }).toList();
     });
   }
+
+  // Daily quest tracking
+  Future<void> markDailyQuestCompleted(String questText, String category) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+    
+    final today = DateTime.now();
+    final dateString = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    
+    final docRef = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('daily_quests')
+        .doc(dateString);
+    
+    await docRef.set({
+      'completed': true,
+      'questText': questText,
+      'category': category,
+      'completedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> undoDailyQuest() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+    
+    final today = DateTime.now();
+    final dateString = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    
+    final docRef = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('daily_quests')
+        .doc(dateString);
+    
+    await docRef.delete();
+    
+    // Also remove the corresponding quest from today
+    final questsRef = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('quests');
+    
+    final todayStart = DateTime(today.year, today.month, today.day);
+    final todayEnd = todayStart.add(const Duration(days: 1));
+    
+    final questsSnapshot = await questsRef
+        .where('completedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
+        .where('completedAt', isLessThan: Timestamp.fromDate(todayEnd))
+        .get();
+    
+    for (var doc in questsSnapshot.docs) {
+      await doc.reference.delete();
+    }
+  }
+
+  Stream<bool> getDailyQuestStatus() {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return Stream.error('User not logged in');
+    }
+    
+    final today = DateTime.now();
+    final dateString = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    
+    final docRef = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('daily_quests')
+        .doc(dateString);
+    
+    return docRef.snapshots().map((snapshot) {
+      return snapshot.exists && (snapshot.data()?['completed'] ?? false);
+    });
+  }
+
+  Future<void> markTodayAsNotCompleted() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+    
+    final docRef = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('gamification')
+        .doc('data');
+
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists) return;
+
+      final data = GamificationData.fromFirestore(snapshot.data()!);
+      final now = DateTime.now();
+      final todayIndex = (now.weekday - 1) % 7;
+      
+      // Update completedDays to mark today as not completed
+      final updatedCompletedDays = List<bool>.from(data.completedDays);
+      updatedCompletedDays[todayIndex] = false;
+      
+      final updatedData = GamificationData(
+        streak: data.streak > 0 ? data.streak - 1 : 0, // Reduce streak by 1
+        lastActivityDate: data.lastActivityDate,
+        streakFreezeActive: data.streakFreezeActive,
+        completedDays: updatedCompletedDays,
+      );
+      
+      transaction.update(docRef, updatedData.toFirestore());
+    });
+
+    // Also call the existing undo method to remove from daily_quests and quests
+    await undoDailyQuest();
+  }
 }
 
 final gamificationRepoProvider = Provider((ref) => GamificationRepository());
