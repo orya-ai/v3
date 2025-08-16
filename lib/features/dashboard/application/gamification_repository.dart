@@ -220,6 +220,30 @@ class GamificationRepository {
     });
   }
 
+  Stream<Map<String, dynamic>?> getCompletedDailyQuest() {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return Stream.error('User not logged in');
+    }
+
+    final today = DateTime.now();
+    final dateString = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
+    final docRef = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('daily_quests')
+        .doc(dateString);
+
+    return docRef.snapshots().map((snapshot) {
+      if (snapshot.exists) {
+        return snapshot.data();
+      } else {
+        return null;
+      }
+    });
+  }
+
   Future<void> markTodayAsNotCompleted() async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('User not logged in');
@@ -265,4 +289,9 @@ final gamificationProvider = StreamProvider.autoDispose<GamificationData>((ref) 
 
 final questsProvider = StreamProvider.autoDispose<List<Quest>>((ref) {
   return ref.watch(gamificationRepoProvider).getCompletedQuests();
+});
+
+final dailyQuestStatusProvider = StreamProvider.autoDispose<bool>((ref) {
+  final gamificationRepo = ref.watch(gamificationRepoProvider);
+  return gamificationRepo.getDailyQuestStatus();
 });

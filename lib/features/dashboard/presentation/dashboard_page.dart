@@ -24,14 +24,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     with SingleTickerProviderStateMixin {
   String _dailyPrompt = 'Loading...';
   String _dailyPromptCategory = '';
-  bool _isCompleted = false;
   late AnimationController _controller;
   late Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
-    _loadDailyPrompt();
 
     _controller = AnimationController(
       duration: const Duration(milliseconds: 750),
@@ -43,17 +41,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
       curve: Curves.elasticOut,
     )..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
-          setState(() {
-            _isCompleted = true;
-          });
           HapticFeedback.heavyImpact();
+          // The provider's state will be false here, so we call createQuest.
+          // The provider will then update, and the UI will rebuild correctly.
           _createQuestFromDailyPrompt();
-        } else if (status == AnimationStatus.dismissed) {
-          setState(() {
-            _isCompleted = false;
-          });
         }
       });
+
+    _loadDailyPrompt();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(gamificationRepoProvider).recordActivity();
@@ -67,14 +62,27 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
   }
 
   Future<void> _loadDailyPrompt() async {
-    final promptData = await DailyConnectionPromptService().getTodaysPrompt();
-    if (mounted) {
-      setState(() {
-        _dailyPromptCategory =
-            promptData['category']?.toUpperCase() ?? 'CONNECT';
-        _dailyPrompt =
-            promptData['prompt'] ?? 'Check back tomorrow for a new prompt!';
-      });
+    // We need to check the provider to see if the quest is already completed on load.
+    final isCompletedOnLoad = await ref.read(dailyQuestStatusProvider.future);
+
+    if (isCompletedOnLoad) {
+      final questData = await ref.read(gamificationRepoProvider).getCompletedDailyQuest().first;
+      if (mounted && questData != null) {
+        setState(() {
+          _dailyPromptCategory = questData['category']?.toUpperCase() ?? 'CONNECT';
+          _dailyPrompt = questData['questText'] ?? 'Completed!';
+        });
+      }
+    } else {
+      final promptData = await DailyConnectionPromptService().getTodaysPrompt();
+      if (mounted) {
+        setState(() {
+          _dailyPromptCategory =
+              promptData['category']?.toUpperCase() ?? 'CONNECT';
+          _dailyPrompt =
+              promptData['prompt'] ?? 'Check back tomorrow for a new prompt!';
+        });
+      }
     }
   }
 
@@ -179,6 +187,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
   }
 
   Widget _buildTodaysConnectionPrompt(BuildContext context) {
+    final isCompleted = ref.watch(dailyQuestStatusProvider).value ?? false;
+
+    // If the quest is completed on load, make sure the animation controller reflects this.
+    if (isCompleted && !_controller.isCompleted) {
+      _controller.value = 1.0;
+    }
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -237,26 +252,30 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                 final endWidth = MediaQuery.of(context).size.width;
                 final endHeight = 280.0;
 
-                final width = _isCompleted
+                final width = isCompleted
                     ? endWidth
                     : lerpDouble(MediaQuery.of(context).size.width - 80,
                         endWidth, _animation.value)!;
-                final height = _isCompleted
+                final height = isCompleted
                     ? endHeight
                     : lerpDouble(50, endHeight, _animation.value)!;
                 final radius = lerpDouble(30, 20, _animation.value)!;
 
                 return GestureDetector(
-                  onTapDown: _isCompleted ? null : (_) {
-                    _controller.forward();
-                    Vibration.vibrate(duration: 1000, amplitude: 128);
-                  },
-                  onTapUp: _isCompleted ? null : (_) {
-                    if (_controller.status != AnimationStatus.completed) {
-                      _controller.reverse();
-                      Vibration.cancel();
-                    }
-                  },
+                  onTapDown: isCompleted
+                      ? null
+                      : (_) {
+                          _controller.forward();
+                          Vibration.vibrate(duration: 1000, amplitude: 128);
+                        },
+                  onTapUp: isCompleted
+                      ? null
+                      : (_) {
+                          if (_controller.status != AnimationStatus.completed) {
+                            _controller.reverse();
+                            Vibration.cancel();
+                          }
+                        },
                   child: Container(
                     width: width,
                     height: height,
@@ -265,7 +284,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                       borderRadius: BorderRadius.circular(radius),
                     ),
                     alignment: Alignment.center,
-                    child: _isCompleted
+                    child: isCompleted
                         ? _buildCompletedView()
                         : Text(
                             'PRESS AND HOLD TO MARK AS COMPLETED',
@@ -303,10 +322,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
         const SizedBox(height: 10),
         TextButton(
           onPressed: () {
-            setState(() {
-              _isCompleted = false;
-              _controller.reset();
-            });
+            _controller.reset();
+            ref.read(gamificationRepoProvider).markTodayAsNotCompleted();
           },
           child: const Text(
             'Undo',
