@@ -434,13 +434,20 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
 
   Future<void> _createQuestFromDailyPrompt() async {
     try {
+      // Persist completion for today so dailyQuestStatusProvider updates to true
+      final repo = ref.read(gamificationRepoProvider);
+      await repo.markDailyQuestCompleted(_dailyPrompt, _dailyPromptCategory);
+
+      // Add to historical quests list
       final quest = Quest(
         title: _dailyPrompt,
         points: '10', // You can adjust the points as needed
         completedAt: DateTime.now(),
       );
-      
-      await ref.read(gamificationRepoProvider).addCompletedQuest(quest);
+      await repo.addCompletedQuest(quest);
+
+      // Update gamification/streak data immediately
+      await repo.recordActivity();
     } catch (e) {
       print('Error creating quest: $e');
     }
