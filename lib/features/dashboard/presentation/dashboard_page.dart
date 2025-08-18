@@ -26,6 +26,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
   String _dailyPromptCategory = '';
   late AnimationController _controller;
   late Animation<double> _animation;
+  // Optimistic local override for completion state.
+  // null => follow backend; true/false => force UI state immediately.
+  bool? _completedOverride;
 
   @override
   void initState() {
@@ -33,17 +36,24 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
 
     _controller = AnimationController(
       duration: const Duration(milliseconds: 750),
+      reverseDuration: const Duration(milliseconds: 450),
       vsync: this,
     );
 
     _animation = CurvedAnimation(
       parent: _controller,
       curve: Curves.elasticOut,
+      reverseCurve: Curves.easeOutCubic,
     )..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
           HapticFeedback.heavyImpact();
-          // The provider's state will be false here, so we call createQuest.
-          // The provider will then update, and the UI will rebuild correctly.
+          // Optimistically mark as completed in UI immediately
+          if (mounted) {
+            setState(() {
+              _completedOverride = true;
+            });
+          }
+          // Persist completion; provider will catch up shortly
           _createQuestFromDailyPrompt();
         }
       });
@@ -88,6 +98,18 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
 
   @override
   Widget build(BuildContext context) {
+    // Clear local override once backend/provider matches our optimistic state
+    ref.listen<AsyncValue<bool>>(dailyQuestStatusProvider, (previous, next) {
+      final v = next.value;
+      if (v != null && _completedOverride != null && v == _completedOverride) {
+        if (mounted) {
+          setState(() {
+            _completedOverride = null;
+          });
+        }
+      }
+    });
+
     final userAsyncValue = ref.watch(userProvider);
 
     return userAsyncValue.when(
@@ -187,9 +209,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
   }
 
   Widget _buildTodaysConnectionPrompt(BuildContext context) {
-    final isCompleted = ref.watch(dailyQuestStatusProvider).value ?? false;
+    final isCompletedRemote = ref.watch(dailyQuestStatusProvider).value ?? false;
+    final isCompleted = _completedOverride ?? isCompletedRemote;
 
-    // If the quest is completed on load, make sure the animation controller reflects this.
+    // If completed, ensure the controller reflects the end state.
     if (isCompleted && !_controller.isCompleted) {
       _controller.value = 1.0;
     }
@@ -321,9 +344,18 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
         ),
         const SizedBox(height: 10),
         TextButton(
-          onPressed: () {
-            _controller.reset();
-            ref.read(gamificationRepoProvider).markTodayAsNotCompleted();
+          onPressed: () async {
+            if (!mounted) return;
+            // Optimistically revert UI immediately
+            setState(() {
+              _completedOverride = false;
+            });
+            // Smooth reverse back to initial state
+            final start = _controller.value == 0.0 ? 1.0 : _controller.value;
+            _controller.reverse(from: start);
+            Vibration.cancel();
+            // Persist undo to Firebase (removes today's completion and updates gamification)
+            unawaited(ref.read(gamificationRepoProvider).markTodayAsNotCompleted());
           },
           child: const Text(
             'Undo',
