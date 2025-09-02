@@ -160,33 +160,55 @@ class WheelPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
     final sliceAngle = 2 * math.pi / slices.length;
+    
+    // Define the three radii for the roulette sections
+    final outerRadius = radius; // Full wheel radius
+    final middleRadius = radius * 0.7; // Ball pocket section
+    final innerRadius = radius * 0.4; // Brown center
 
-    // Draw wheel slices
+    // Draw wheel slices (outer section with numbers)
     for (int i = 0; i < slices.length; i++) {
       final startAngle = i * sliceAngle - math.pi / 2; // Start from top
       final slice = slices[i];
 
-      // Draw slice
+      // Draw outer slice (number section)
       final paint = Paint()
         ..color = slice.color
         ..style = PaintingStyle.fill;
 
       canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
+        Rect.fromCircle(center: center, radius: outerRadius),
         startAngle,
         sliceAngle,
         true,
         paint,
       );
 
-      // Draw border
+      // Draw middle slice (ball pocket section - same color as outer)
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: middleRadius),
+        startAngle,
+        sliceAngle,
+        true,
+        paint,
+      );
+
+      // Draw border between sections
       final borderPaint = Paint()
         ..color = slice.borderColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
 
       canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
+        Rect.fromCircle(center: center, radius: outerRadius),
+        startAngle,
+        sliceAngle,
+        true,
+        borderPaint,
+      );
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: middleRadius),
         startAngle,
         sliceAngle,
         true,
@@ -194,13 +216,36 @@ class WheelPainter extends CustomPainter {
       );
     }
 
+    // Draw brown inner circle (center)
+    final brownPaint = Paint()
+      ..color = const Color(0xFF8B4513) // Brown color
+      ..style = PaintingStyle.fill;
+
+    canvas.drawCircle(center, innerRadius, brownPaint);
+
+    // Draw border around brown center
+    final brownBorderPaint = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    canvas.drawCircle(center, innerRadius, brownBorderPaint);
+
+    // Draw border around middle section
+    final middleBorderPaint = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    canvas.drawCircle(center, middleRadius, middleBorderPaint);
+
     // Draw outer border
     final outerBorderPaint = Paint()
       ..color = Colors.black
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
 
-    canvas.drawCircle(center, radius, outerBorderPaint);
+    canvas.drawCircle(center, outerRadius, outerBorderPaint);
   }
 
   @override
