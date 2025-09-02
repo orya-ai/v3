@@ -6,6 +6,7 @@ import 'package:logging/logging.dart';
 
 import '../../features/activities/presentation/activities_page.dart';
 import '../../features/activities/presentation/conversation_cards_page.dart';
+import '../../features/activities/presentation/truth_or_dare_roulette_page.dart';
 import '../../features/auth/domain/auth_state_notifier.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/signup_screen.dart';
@@ -94,6 +95,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
           child: const ConversationCardsPage(),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.truthOrDareRoulette,
+        parentNavigatorKey: rootNavigatorKey, // Ensures this route uses the root navigator
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const TruthOrDareRoulettePage(),
         ),
       ),
 

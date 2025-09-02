@@ -13,6 +13,7 @@ class AppRoutes {
   static const String dashboard = '/dashboard';
   static const String activities = '/activities';
   static const String conversationCards = '/conversation-cards';
+  static const String truthOrDareRoulette = '/truth-or-dare-roulette';
   static const String profile = '/profile';
   
   // Profile routes
