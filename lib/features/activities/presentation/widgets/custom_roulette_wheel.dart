@@ -89,7 +89,7 @@ class _CustomRouletteWheelState extends State<CustomRouletteWheel>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Wheel
+          // Wheel (rotates)
           AnimatedBuilder(
             animation: _rotationAnimation,
             builder: (context, child) {
@@ -98,6 +98,19 @@ class _CustomRouletteWheelState extends State<CustomRouletteWheel>
                 child: CustomPaint(
                   size: Size(widget.size, widget.size),
                   painter: WheelPainter(slices: widget.slices),
+                ),
+              );
+            },
+          ),
+          // Letters (stay fixed and upright)
+          AnimatedBuilder(
+            animation: _rotationAnimation,
+            builder: (context, child) {
+              return CustomPaint(
+                size: Size(widget.size, widget.size),
+                painter: LetterPainter(
+                  slices: widget.slices,
+                  wheelRotation: _rotationAnimation.value,
                 ),
               );
             },
@@ -179,16 +192,6 @@ class WheelPainter extends CustomPainter {
         true,
         borderPaint,
       );
-
-      // Draw text on outer rim
-      _drawTextOnRim(
-        canvas,
-        slice.text,
-        center,
-        radius,
-        startAngle + sliceAngle / 2,
-        slice.textColor,
-      );
     }
 
     // Draw outer border
@@ -200,7 +203,45 @@ class WheelPainter extends CustomPainter {
     canvas.drawCircle(center, radius, outerBorderPaint);
   }
 
-  void _drawTextOnRim(
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class LetterPainter extends CustomPainter {
+  final List<WheelSlice> slices;
+  final double wheelRotation;
+
+  LetterPainter({
+    required this.slices,
+    required this.wheelRotation,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+    final sliceAngle = 2 * math.pi / slices.length;
+
+    // Draw letters that stay upright
+    for (int i = 0; i < slices.length; i++) {
+      final slice = slices[i];
+      final sliceMiddleAngle = (i * sliceAngle - math.pi / 2) + sliceAngle / 2;
+      
+      // Calculate the position accounting for wheel rotation
+      final totalAngle = sliceMiddleAngle + wheelRotation;
+      
+      _drawUprightTextOnRim(
+        canvas,
+        slice.text,
+        center,
+        radius,
+        totalAngle,
+        slice.textColor,
+      );
+    }
+  }
+
+  void _drawUprightTextOnRim(
     Canvas canvas,
     String text,
     Offset center,
@@ -230,13 +271,26 @@ class WheelPainter extends CustomPainter {
 
     textPainter.layout();
 
-    // Center the text at the calculated position
+    // Save the canvas state
+    canvas.save();
+    
+    // Translate to the text position
+    canvas.translate(textX, textY);
+    
+    // Rotate the text to be radially oriented (pointing toward center)
+    // Add π/2 to make text point toward center instead of tangentially
+    canvas.rotate(angle + math.pi / 2);
+
+    // Center the text at the origin (after translation and rotation)
     final offset = Offset(
-      textX - textPainter.width / 2,
-      textY - textPainter.height / 2,
+      -textPainter.width / 2,
+      -textPainter.height / 2,
     );
 
     textPainter.paint(canvas, offset);
+    
+    // Restore the canvas state
+    canvas.restore();
   }
 
   @override
