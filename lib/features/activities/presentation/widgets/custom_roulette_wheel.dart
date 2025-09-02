@@ -249,8 +249,8 @@ class LetterPainter extends CustomPainter {
     double angle,
     Color textColor,
   ) {
-    // Position text closer to the rim
-    final textRadius = radius * 0.8; // 80% of radius for better rim placement
+    // Position text closer to the rim (moved from 80% to 90% for closer placement)
+    final textRadius = radius * 0.90; // 90% of radius for closer rim placement
     final textX = center.dx + textRadius * math.cos(angle);
     final textY = center.dy + textRadius * math.sin(angle);
 
@@ -258,8 +258,8 @@ class LetterPainter extends CustomPainter {
       text: text,
       style: TextStyle(
         color: textColor,
-        fontSize: 24,
-        fontWeight: FontWeight.bold,
+        fontSize: 18, // Reduced from 24 to 18 for smaller letters
+        fontWeight: FontWeight.w400, // Changed from bold to normal for thinner letters
       ),
     );
 

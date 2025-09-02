@@ -20,39 +20,47 @@ class _TruthOrDareRoulettePageState extends ConsumerState<TruthOrDareRoulettePag
   int _selectedIndex = 0;
   String _result = ''; // The resulting question
 
-  // Simplified wheel slices: just Colors → for T, D, or C
-  final List<Color> _sliceColors = [
-    Colors.red,
-    Colors.black,
-    Colors.red,
-    Colors.black,
-    Colors.green,
-    Colors.red,
-    Colors.black,
-    Colors.red,
-    Colors.black,
-    Colors.red,
-    Colors.black,
-    Colors.red,
-    Colors.black,
-    Colors.red,
-    Colors.black,
-    Colors.green,
-    Colors.red,
-    Colors.black,
-    Colors.red,
-    Colors.black,
-    Colors.red,
-    Colors.black,
-    Colors.red,
-    Colors.black,
-    Colors.red,
-    Colors.black,
-    Colors.red,
-    Colors.black,
-    Colors.red,
-    Colors.black,
-  ];
+// Simplified wheel slices: just Colors → for T, D, or C - Based on real American roulette wheel layout
+final List<Color> _sliceColors = [
+  Colors.green, // 0
+  Colors.red,   // 28
+  Colors.black, // 9
+  Colors.red,   // 26
+  Colors.black, // 30
+  Colors.red,   // 11
+  Colors.black, // 7
+  Colors.red,   // 20
+  Colors.black, // 32
+  Colors.red,   // 17
+  Colors.black, // 5
+  Colors.red,   // 22
+  Colors.black, // 34
+  Colors.red,   // 15
+  Colors.black, // 3
+  Colors.red,   // 24
+  Colors.black, // 36
+  Colors.red,   // 13
+  Colors.black, // 1
+  Colors.green, // 00
+  Colors.red,   // 27
+  Colors.black, // 10
+  Colors.red,   // 25
+  Colors.black, // 29
+  Colors.red,   // 12
+  Colors.black, // 8
+  Colors.red,   // 19
+  Colors.black, // 31
+  Colors.red,   // 18
+  Colors.black, // 6
+  Colors.red,   // 21
+  Colors.black, // 33
+  Colors.red,   // 16
+  Colors.black, // 4
+  Colors.red,   // 23
+  Colors.black, // 35
+  Colors.red,   // 14
+  Colors.black, // 2
+];
 
   late final List<WheelSlice> _wheelSlices;
 
