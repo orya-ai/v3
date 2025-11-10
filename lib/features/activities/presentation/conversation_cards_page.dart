@@ -7,9 +7,7 @@ import '../application/providers/conversation_cards_providers.dart';
 import './widgets/conversation_card_widget.dart';
 import 'package:go_router/go_router.dart'; // Import go_router
 import '../../../core/theme/app_theme.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../dashboard/application/gamification_provider.dart';
+import '../../dashboard/application/activity_recorder.dart';
 
 class ConversationCardsPage extends ConsumerStatefulWidget {
   const ConversationCardsPage({super.key});
@@ -107,10 +105,17 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
     _animation = Tween<Offset>(begin: _dragPosition, end: Offset(endX, endY))
         .animate(CurvedAnimation(parent: _animationController, curve: Curves.easeIn));
 
-    _animationController.forward(from: 0).whenComplete(() {
+    _animationController.forward(from: 0).whenComplete(() async {
       HapticFeedback.mediumImpact(); // Add haptic feedback
       ref.read(cardStackControllerProvider.notifier).swipeTopCard();
-      ref.read(gamificationProvider.notifier).recordActivity();
+      
+      // Record activity using standardized recorder
+      await ActivityRecorder.recordActivityWithContext(
+        ref,
+        feature: 'Conversation Cards',
+        action: 'Card Swiped',
+      );
+      
       _animationController.reset();
       setState(() {
         _dragPosition = Offset.zero;

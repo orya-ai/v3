@@ -266,9 +266,20 @@ class GamificationRepository {
       final updatedCompletedDays = List<bool>.from(data.completedDays);
       updatedCompletedDays[todayIndex] = false;
       
+      // Reset lastActivityDate to yesterday if undoing today's activity
+      DateTime? newLastActivityDate = data.lastActivityDate;
+      if (data.lastActivityDate != null) {
+        final lastActivity = DateTime(data.lastActivityDate!.year, data.lastActivityDate!.month, data.lastActivityDate!.day);
+        final today = DateTime(now.year, now.month, now.day);
+        if (lastActivity.isAtSameMomentAs(today)) {
+          // If we're undoing today's activity, set lastActivityDate to yesterday (if there was a streak)
+          newLastActivityDate = data.streak > 1 ? today.subtract(const Duration(days: 1)) : null;
+        }
+      }
+
       final updatedData = GamificationData(
         streak: data.streak > 0 ? data.streak - 1 : 0, // Reduce streak by 1
-        lastActivityDate: data.lastActivityDate,
+        lastActivityDate: newLastActivityDate,
         streakFreezeActive: data.streakFreezeActive,
         completedDays: updatedCompletedDays,
       );

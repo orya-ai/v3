@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orya/features/dashboard/application/gamification_repository.dart';
+import 'package:orya/features/dashboard/application/activity_recorder.dart';
 import 'package:orya/features/profile/application/user_repository.dart';
 import 'package:orya/core/theme/app_theme.dart';
 import 'package:vibration/vibration.dart';
@@ -59,10 +60,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
       });
 
     _loadDailyPrompt();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(gamificationRepoProvider).recordActivity();
-    });
   }
 
   @override
@@ -151,58 +148,78 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
 
   Widget _buildGamificationArea(BuildContext context) {
     final gamificationState = ref.watch(gamificationProvider);
-    final daySymbols = DateFormat.E().dateSymbols.STANDALONESHORTWEEKDAYS;
-    final List<String> days = [...daySymbols.sublist(1), daySymbols[0]];
 
     return gamificationState.when(
-      data: (gamificationData) => GestureDetector(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const ActivityCalendarPage()),
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryBackgroundColor,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 32),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${gamificationData.streak} day streak!',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 15),
-              Text(
-                'COMPLETE AN ACTIVITY',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: AppTheme.primaryTextColor.withOpacity(0.7),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
+      data: (gamificationData) {
+        // Generate rolling 7-day window with today at the far right
+        final now = DateTime.now();
+        final List<DateTime> rollingDays = [];
+        final List<String> rollingDayLabels = [];
+        final List<bool> rollingCompletedStatus = [];
+        
+        // Generate last 6 days + today (7 days total)
+        for (int i = 6; i >= 0; i--) {
+          final date = now.subtract(Duration(days: i));
+          rollingDays.add(date);
+          
+          // Get short day name (Mon, Tue, etc.)
+          final dayLabel = DateFormat.E().format(date);
+          rollingDayLabels.add(dayLabel);
+          
+          // Map to the backend's fixed week array (Mon=0, Sun=6)
+          final weekdayIndex = (date.weekday - 1) % 7;
+          final isCompleted = gamificationData.completedDays[weekdayIndex];
+          rollingCompletedStatus.add(isCompleted);
+        }
+
+        return GestureDetector(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const ActivityCalendarPage()),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryBackgroundColor,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 32),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${gamificationData.streak} day streak!',
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
-              ),
-              const SizedBox(height: 15),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(7, (index) {
-                  return _buildDayIndicator(
-                      days[index], gamificationData.completedDays[index], index);
-                }),
-              ),
-              const SizedBox(height: 15),
-            ],
+                  ],
+                ),
+                const SizedBox(height: 15),
+                Text(
+                  'COMPLETE AN ACTIVITY',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: AppTheme.primaryTextColor.withOpacity(0.7),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                ),
+                const SizedBox(height: 15),
+                _buildEnhancedStreakVisualization(
+                  rollingDays,
+                  rollingDayLabels,
+                  rollingCompletedStatus,
+                  now,
+                ),
+                const SizedBox(height: 15),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Text('Error: $err'),
     );
@@ -366,35 +383,285 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     );
   }
 
-  Widget _buildDayIndicator(String day, bool isCompleted, int index) {
-    final today = DateTime.now();
-    final isCurrentDay = (today.weekday - 1) == index;
-
+  Widget _buildEnhancedStreakVisualization(
+    List<DateTime> rollingDays,
+    List<String> rollingDayLabels,
+    List<bool> rollingCompletedStatus,
+    DateTime now,
+  ) {
     return Column(
       children: [
-        Text(
-          day,
-          style: TextStyle(
-            color: AppTheme.primaryTextColor,
-            fontWeight: isCurrentDay ? FontWeight.bold : FontWeight.normal,
-            fontSize: 12,
-          ),
+        // Day labels row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(7, (index) {
+            final date = rollingDays[index];
+            final isToday = date.year == now.year && 
+                           date.month == now.month && 
+                           date.day == now.day;
+            
+            return Expanded(
+              child: Center(
+                child: Text(
+                  rollingDayLabels[index],
+                  style: TextStyle(
+                    color: AppTheme.primaryTextColor,
+                    fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            );
+          }),
         ),
-        const SizedBox(height: 8),
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isCompleted ? AppTheme.accentColor : Colors.grey.shade300,
+        const SizedBox(height: 12),
+        // Enhanced streak visualization
+        SizedBox(
+          height: 40,
+          child: Stack(
+            children: [
+              // Background connecting line
+              Positioned(
+                left: 20,
+                right: 20,
+                top: 18,
+                child: Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Connected streak backgrounds (fill gaps between consecutive days)
+              ..._buildConnectedStreakBackgrounds(rollingCompletedStatus, rollingDays),
+              // Individual day indicators on top
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: _buildStreakSegments(rollingCompletedStatus, rollingDays, now),
+              ),
+            ],
           ),
-          child: isCompleted
-              ? const Icon(Icons.check, color: Colors.white, size: 18)
-              : null,
         ),
       ],
     );
   }
+
+  List<Widget> _buildConnectedStreakBackgrounds(List<bool> completedStatus, List<DateTime> rollingDays) {
+    List<Widget> backgrounds = [];
+    
+    // Find continuous streak segments
+    List<StreakSegment> segments = _findStreakSegments(completedStatus, rollingDays);
+    
+    for (StreakSegment segment in segments) {
+      if (segment.length > 1) { // Only create backgrounds for multi-day streaks
+        backgrounds.add(
+          Positioned.fill(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Calculate exact positions based on the Row layout
+                final totalWidth = constraints.maxWidth;
+                final dayWidth = totalWidth / 7;
+                final startX = segment.startIndex * dayWidth;
+                final endX = (segment.startIndex + segment.length) * dayWidth;
+                final segmentWidth = endX - startX;
+                
+                return Stack(
+                  children: [
+                    Positioned(
+                      left: startX + (dayWidth - 36) / 2, // Center within first day
+                      top: 2,
+                      child: Container(
+                        width: segmentWidth - (dayWidth - 36), // Span to center of last day
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentColor.withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      }
+    }
+    
+    return backgrounds;
+  }
+
+  List<StreakSegment> _findStreakSegments(List<bool> completedStatus, List<DateTime> rollingDays) {
+    List<StreakSegment> segments = [];
+    int? streakStart;
+    
+    for (int i = 0; i < completedStatus.length; i++) {
+      if (completedStatus[i]) {
+        // Check if this continues a streak or starts a new one
+        if (streakStart == null) {
+          streakStart = i;
+        } else {
+          // Check if this day is consecutive to the previous day
+          final currentDate = rollingDays[i];
+          final previousDate = rollingDays[i - 1];
+          final isConsecutive = currentDate.difference(previousDate).inDays == 1;
+          
+          if (!isConsecutive) {
+            // End previous streak and start new one
+            segments.add(StreakSegment(
+              startIndex: streakStart,
+              length: i - streakStart,
+            ));
+            streakStart = i;
+          }
+        }
+      } else {
+        // End of current streak
+        if (streakStart != null) {
+          segments.add(StreakSegment(
+            startIndex: streakStart,
+            length: i - streakStart,
+          ));
+          streakStart = null;
+        }
+      }
+    }
+    
+    // Handle streak that goes to the end
+    if (streakStart != null) {
+      segments.add(StreakSegment(
+        startIndex: streakStart,
+        length: completedStatus.length - streakStart,
+      ));
+    }
+    
+    return segments;
+  }
+
+  List<Widget> _buildStreakSegments(
+    List<bool> completedStatus,
+    List<DateTime> rollingDays,
+    DateTime now,
+  ) {
+    List<Widget> segments = [];
+    
+    for (int i = 0; i < completedStatus.length; i++) {
+      final isCompleted = completedStatus[i];
+      final date = rollingDays[i];
+      final isToday = date.year == now.year && 
+                     date.month == now.month && 
+                     date.day == now.day;
+      
+      // Check if this day is part of a continuous streak
+      final isPartOfStreak = _isPartOfContinuousStreak(completedStatus, i, rollingDays);
+      final streakPosition = _getStreakPosition(completedStatus, i);
+      
+      segments.add(
+        Expanded(
+          child: _buildDaySegment(
+            isCompleted: isCompleted,
+            isToday: isToday,
+            isPartOfStreak: isPartOfStreak,
+            streakPosition: streakPosition,
+            dayIndex: i,
+          ),
+        ),
+      );
+    }
+    
+    return segments;
+  }
+
+  Widget _buildDaySegment({
+    required bool isCompleted,
+    required bool isToday,
+    required bool isPartOfStreak,
+    required StreakPosition streakPosition,
+    required int dayIndex,
+  }) {
+    return Center(
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          // Use transparent background for streak days (background shows through)
+          // Only individual completed days get solid color
+          color: isCompleted 
+              ? (isPartOfStreak 
+                  ? Colors.transparent 
+                  : (isToday ? AppTheme.accentColor : AppTheme.accentColor.withOpacity(0.8)))
+              : Colors.grey.shade300,
+          border: isToday && !isCompleted
+              ? Border.all(color: AppTheme.accentColor, width: 2)
+              : null,
+          boxShadow: isToday && isCompleted
+              ? [
+                  BoxShadow(
+                    color: AppTheme.accentColor.withOpacity(0.3),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ]
+              : null,
+        ),
+        child: isCompleted
+            ? Icon(
+                Icons.check,
+                color: Colors.white,
+                size: isToday ? 20 : 18,
+              )
+            : isToday
+                ? Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppTheme.accentColor,
+                    ),
+                  )
+                : null,
+      ),
+    );
+  }
+
+  bool _isPartOfContinuousStreak(List<bool> completedStatus, int index, List<DateTime> rollingDays) {
+    if (!completedStatus[index]) return false;
+    
+    final currentDate = rollingDays[index];
+    
+    // Check if connected to previous consecutive calendar day
+    bool hasPrevious = false;
+    if (index > 0) {
+      final previousDate = rollingDays[index - 1];
+      final isConsecutive = currentDate.difference(previousDate).inDays == 1;
+      hasPrevious = completedStatus[index - 1] && isConsecutive;
+    }
+    
+    // Check if connected to next consecutive calendar day
+    bool hasNext = false;
+    if (index < completedStatus.length - 1) {
+      final nextDate = rollingDays[index + 1];
+      final isConsecutive = nextDate.difference(currentDate).inDays == 1;
+      hasNext = completedStatus[index + 1] && isConsecutive;
+    }
+    
+    return hasPrevious || hasNext;
+  }
+
+  StreakPosition _getStreakPosition(List<bool> completedStatus, int index) {
+    if (!completedStatus[index]) return StreakPosition.none;
+    
+    final hasPrevious = index > 0 && completedStatus[index - 1];
+    final hasNext = index < completedStatus.length - 1 && completedStatus[index + 1];
+    
+    if (hasPrevious && hasNext) return StreakPosition.middle;
+    if (hasPrevious && !hasNext) return StreakPosition.end;
+    if (!hasPrevious && hasNext) return StreakPosition.start;
+    return StreakPosition.single;
+  }
+
 
   Widget _buildConnectionJourneyButton(BuildContext context) {
     return GestureDetector(
@@ -478,10 +745,32 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
       );
       await repo.addCompletedQuest(quest);
 
-      // Update gamification/streak data immediately
-      await repo.recordActivity();
+      // Record activity using standardized recorder
+      await ActivityRecorder.recordActivityWithContext(
+        ref,
+        feature: 'Daily Prompt',
+        action: 'Quest Completed',
+      );
     } catch (e) {
       print('Error creating quest: $e');
     }
   }
+}
+
+enum StreakPosition {
+  none,
+  single,
+  start,
+  middle,
+  end,
+}
+
+class StreakSegment {
+  final int startIndex;
+  final int length;
+  
+  StreakSegment({
+    required this.startIndex,
+    required this.length,
+  });
 }

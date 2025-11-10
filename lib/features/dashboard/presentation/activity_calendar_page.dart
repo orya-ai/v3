@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:orya/features/dashboard/application/gamification_provider.dart';
+import 'package:orya/features/dashboard/application/gamification_repository.dart';
+import 'package:orya/features/dashboard/domain/gamification_model.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:orya/core/theme/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -43,8 +44,46 @@ class _ActivityCalendarPageState extends ConsumerState<ActivityCalendarPage> {
 
   @override
   Widget build(BuildContext context) {
-    final gamificationState = ref.watch(gamificationProvider);
-    final allActivities = gamificationState.allActivities;
+    final gamificationAsync = ref.watch(gamificationProvider);
+    
+    return gamificationAsync.when(
+      data: (gamificationData) => _buildCalendar(gamificationData),
+      loading: () => Scaffold(
+        appBar: AppBar(
+          title: const Text('Activity Calendar'),
+          backgroundColor: AppTheme.primaryBackgroundColor,
+          elevation: 0,
+          foregroundColor: AppTheme.primaryTextColor,
+        ),
+        backgroundColor: AppTheme.primaryBackgroundColor,
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stack) => Scaffold(
+        appBar: AppBar(
+          title: const Text('Activity Calendar'),
+          backgroundColor: AppTheme.primaryBackgroundColor,
+          elevation: 0,
+          foregroundColor: AppTheme.primaryTextColor,
+        ),
+        backgroundColor: AppTheme.primaryBackgroundColor,
+        body: Center(child: Text('Error: $error')),
+      ),
+    );
+  }
+
+  Widget _buildCalendar(GamificationData gamificationData) {
+    // Convert completedDays array to Set<DateTime> for calendar
+    final Set<DateTime> allActivities = <DateTime>{};
+    final now = DateTime.now();
+    
+    // Add activities from the current week's completedDays
+    for (int i = 0; i < gamificationData.completedDays.length; i++) {
+      if (gamificationData.completedDays[i]) {
+        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+        final dayDate = startOfWeek.add(Duration(days: i));
+        allActivities.add(DateTime(dayDate.year, dayDate.month, dayDate.day));
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
