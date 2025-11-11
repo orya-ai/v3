@@ -157,19 +157,43 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
         final List<String> rollingDayLabels = [];
         final List<bool> rollingCompletedStatus = [];
         
-        // Generate last 6 days + today (7 days total)
-        for (int i = 6; i >= 0; i--) {
-          final date = now.subtract(Duration(days: i));
-          rollingDays.add(date);
-          
-          // Get short day name (Mon, Tue, etc.)
-          final dayLabel = DateFormat.E().format(date);
-          rollingDayLabels.add(dayLabel);
-          
-          // Map to the backend's fixed week array (Mon=0, Sun=6)
-          final weekdayIndex = (date.weekday - 1) % 7;
-          final isCompleted = gamificationData.completedDays[weekdayIndex];
-          rollingCompletedStatus.add(isCompleted);
+        // Check if data uses new sequential rolling array or old weekday format
+        final useSequentialArray = gamificationData.rollingWindowStart != null;
+        
+        if (useSequentialArray) {
+          // New sequential rolling array - direct 1:1 mapping
+          final windowStart = gamificationData.rollingWindowStart!;
+          for (int i = 0; i < 7; i++) {
+            final date = windowStart.add(Duration(days: i));
+            rollingDays.add(date);
+            
+            // Get short day name (Mon, Tue, etc.)
+            final dayLabel = DateFormat.E().format(date);
+            rollingDayLabels.add(dayLabel);
+            
+            // Direct sequential mapping - much cleaner!
+            final isCompleted = i < gamificationData.completedDays.length 
+                ? gamificationData.completedDays[i] 
+                : false;
+            rollingCompletedStatus.add(isCompleted);
+          }
+        } else {
+          // Legacy weekday-based mapping for backward compatibility
+          for (int i = 6; i >= 0; i--) {
+            final date = now.subtract(Duration(days: i));
+            rollingDays.add(date);
+            
+            // Get short day name (Mon, Tue, etc.)
+            final dayLabel = DateFormat.E().format(date);
+            rollingDayLabels.add(dayLabel);
+            
+            // Map to the backend's fixed week array (Mon=0, Sun=6)
+            final weekdayIndex = (date.weekday - 1) % 7;
+            final isCompleted = weekdayIndex < gamificationData.completedDays.length
+                ? gamificationData.completedDays[weekdayIndex]
+                : false;
+            rollingCompletedStatus.add(isCompleted);
+          }
         }
 
         return GestureDetector(
@@ -555,7 +579,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
       
       // Check if this day is part of a continuous streak
       final isPartOfStreak = _isPartOfContinuousStreak(completedStatus, i, rollingDays);
-      final streakPosition = _getStreakPosition(completedStatus, i);
+      final streakPosition = _getStreakPosition(completedStatus, i, rollingDays);
       
       segments.add(
         Expanded(
@@ -591,20 +615,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
           color: isCompleted 
               ? (isPartOfStreak 
                   ? Colors.transparent 
-                  : (isToday ? AppTheme.accentColor : AppTheme.accentColor.withOpacity(0.8)))
+                  : AppTheme.accentColor.withOpacity(0.8))
               : Colors.grey.shade300,
-          border: isToday && !isCompleted
-              ? Border.all(color: AppTheme.accentColor, width: 2)
-              : null,
-          boxShadow: isToday && isCompleted
-              ? [
-                  BoxShadow(
-                    color: AppTheme.accentColor.withOpacity(0.3),
-                    blurRadius: 8,
-                    spreadRadius: 2,
-                  ),
-                ]
-              : null,
         ),
         child: isCompleted
             ? Icon(
@@ -612,16 +624,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                 color: Colors.white,
                 size: isToday ? 20 : 18,
               )
-            : isToday
-                ? Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppTheme.accentColor,
-                    ),
-                  )
-                : null,
+            : null,
       ),
     );
   }
@@ -650,11 +653,26 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     return hasPrevious || hasNext;
   }
 
-  StreakPosition _getStreakPosition(List<bool> completedStatus, int index) {
+  StreakPosition _getStreakPosition(List<bool> completedStatus, int index, List<DateTime> rollingDays) {
     if (!completedStatus[index]) return StreakPosition.none;
     
-    final hasPrevious = index > 0 && completedStatus[index - 1];
-    final hasNext = index < completedStatus.length - 1 && completedStatus[index + 1];
+    final currentDate = rollingDays[index];
+    
+    // Check if connected to previous consecutive calendar day
+    bool hasPrevious = false;
+    if (index > 0) {
+      final previousDate = rollingDays[index - 1];
+      final isConsecutive = currentDate.difference(previousDate).inDays == 1;
+      hasPrevious = completedStatus[index - 1] && isConsecutive;
+    }
+    
+    // Check if connected to next consecutive calendar day
+    bool hasNext = false;
+    if (index < completedStatus.length - 1) {
+      final nextDate = rollingDays[index + 1];
+      final isConsecutive = nextDate.difference(currentDate).inDays == 1;
+      hasNext = completedStatus[index + 1] && isConsecutive;
+    }
     
     if (hasPrevious && hasNext) return StreakPosition.middle;
     if (hasPrevious && !hasNext) return StreakPosition.end;

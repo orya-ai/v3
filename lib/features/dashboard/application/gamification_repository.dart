@@ -44,16 +44,28 @@ class GamificationRepository {
       final today = DateTime(now.year, now.month, now.day);
 
       if (!snapshot.exists) {
+        // Create new data with sequential rolling array
+        final windowStart = GamificationData.calculateRollingWindowStart();
+        final completedDays = List<bool>.filled(7, false);
+        completedDays[6] = true; // Today is at index 6
+        
         final newGamificationData = GamificationData(
           streak: 1,
           lastActivityDate: today,
-          completedDays: _getUpdatedCompletedDays(List.generate(7, (_) => false), now.weekday),
+          completedDays: completedDays,
+          rollingWindowStart: windowStart,
         );
         transaction.set(docRef, newGamificationData.toFirestore());
         return;
       }
 
-      final data = GamificationData.fromFirestore(snapshot.data()!);
+      var data = GamificationData.fromFirestore(snapshot.data()!);
+      
+      // Migrate old data if needed
+      if (data.rollingWindowStart == null) {
+        data = data.migrateToRollingArray();
+      }
+      
       final lastActivity = data.lastActivityDate;
 
       if (lastActivity != null) {
@@ -81,7 +93,8 @@ class GamificationRepository {
           streak: newStreak,
           lastActivityDate: today,
           streakFreezeActive: newStreakFreezeActive,
-          completedDays: _getUpdatedCompletedDays(data.completedDays, now.weekday),
+          completedDays: _getUpdatedRollingArray(data.completedDays, data.rollingWindowStart!, today),
+          rollingWindowStart: data.rollingWindowStart,
         );
         transaction.update(docRef, updatedData.toFirestore());
 
@@ -90,13 +103,55 @@ class GamificationRepository {
         final updatedData = GamificationData(
           streak: 1,
           lastActivityDate: today,
-          completedDays: _getUpdatedCompletedDays(data.completedDays, now.weekday),
+          completedDays: _getUpdatedRollingArray(data.completedDays, data.rollingWindowStart!, today),
+          rollingWindowStart: data.rollingWindowStart,
         );
         transaction.update(docRef, updatedData.toFirestore());
       }
     });
   }
 
+  /// Updates sequential rolling array with today's activity
+  List<bool> _getUpdatedRollingArray(List<bool> currentDays, DateTime windowStart, DateTime today) {
+    final windowStartNormalized = DateTime(windowStart.year, windowStart.month, windowStart.day);
+    final todayNormalized = DateTime(today.year, today.month, today.day);
+    
+    // Check if we need to shift the window forward
+    final daysSinceWindowStart = todayNormalized.difference(windowStartNormalized).inDays;
+    
+    if (daysSinceWindowStart < 6) {
+      // Today is before the expected position, shouldn't happen in normal flow
+      final updatedDays = List<bool>.from(currentDays);
+      if (daysSinceWindowStart >= 0 && daysSinceWindowStart < 7) {
+        updatedDays[daysSinceWindowStart] = true;
+      }
+      return updatedDays;
+    } else if (daysSinceWindowStart == 6) {
+      // Today is at the correct position (index 6)
+      final updatedDays = List<bool>.from(currentDays);
+      updatedDays[6] = true;
+      return updatedDays;
+    } else {
+      // Window needs to shift forward - create new window with today at index 6
+      final newWindowStart = GamificationData.calculateRollingWindowStart();
+      final newDays = List<bool>.filled(7, false);
+      
+      // Copy relevant data from old window to new positions
+      final shiftAmount = daysSinceWindowStart - 6;
+      for (int i = 0; i < 7; i++) {
+        final oldIndex = i + shiftAmount;
+        if (oldIndex >= 0 && oldIndex < currentDays.length) {
+          newDays[i] = currentDays[oldIndex];
+        }
+      }
+      
+      // Mark today as completed
+      newDays[6] = true;
+      return newDays;
+    }
+  }
+
+  /// Legacy method for backward compatibility
   List<bool> _getUpdatedCompletedDays(List<bool> currentDays, int currentWeekday) {
     final updatedDays = List<bool>.from(currentDays);
     // In Dart, Monday is 1 and Sunday is 7. We map this to our 0-indexed list where Monday is 0.
