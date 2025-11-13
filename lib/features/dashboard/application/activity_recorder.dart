@@ -8,7 +8,7 @@ import 'gamification_repository.dart';
 class ActivityRecorder {
   static const String _logTag = '[ActivityRecorder]';
 
-  /// Records a user activity with standardized error handling
+  /// Records a user activity with standardized error handling and optimistic updates
   /// 
   /// This method should be called when a user completes a meaningful action
   /// that should contribute to their streak (e.g., completing daily prompt,
@@ -24,11 +24,17 @@ class ActivityRecorder {
   }) async {
     try {
       print('$_logTag Recording activity${activityType != null ? ': $activityType' : ''}');
-      await ref.read(gamificationRepoProvider).recordActivity();
-      print('$_logTag Activity recorded successfully');
+      
+      // Fire-and-forget approach for better perceived performance
+      // The UI will update via the stream when Firestore updates
+      ref.read(gamificationRepoProvider).recordActivity().catchError((e) {
+        print('$_logTag Error recording activity: $e');
+      });
+      
+      print('$_logTag Activity recording initiated');
       return true;
     } catch (e) {
-      print('$_logTag Error recording activity: $e');
+      print('$_logTag Error initiating activity recording: $e');
       // Don't throw - let the UI continue functioning even if activity recording fails
       return false;
     }

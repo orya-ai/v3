@@ -171,6 +171,35 @@ class GamificationRepository {
     await docRef.update({'streakFreezeActive': true});
   }
 
+  /// Manually migrate data from old weekday format to new sequential rolling array
+  Future<void> migrateDataToSequentialArray() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+
+    final docRef = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('gamification')
+        .doc('data');
+
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists) return;
+
+      final data = GamificationData.fromFirestore(snapshot.data()!);
+      
+      // Only migrate if not already migrated
+      if (data.rollingWindowStart == null) {
+        print('🔄 Migrating data to sequential rolling array...');
+        final migratedData = data.migrateToRollingArray();
+        transaction.update(docRef, migratedData.toFirestore());
+        print('✅ Migration completed!');
+      } else {
+        print('ℹ️ Data already migrated to sequential format');
+      }
+    });
+  }
+
   Future<void> addCompletedQuest(Quest quest) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('User not logged in');
@@ -313,13 +342,32 @@ class GamificationRepository {
       final snapshot = await transaction.get(docRef);
       if (!snapshot.exists) return;
 
-      final data = GamificationData.fromFirestore(snapshot.data()!);
-      final now = DateTime.now();
-      final todayIndex = (now.weekday - 1) % 7;
+      var data = GamificationData.fromFirestore(snapshot.data()!);
       
-      // Update completedDays to mark today as not completed
+      // Migrate old data if needed
+      if (data.rollingWindowStart == null) {
+        data = data.migrateToRollingArray();
+      }
+      
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      
+      // Update completedDays using sequential rolling array logic
       final updatedCompletedDays = List<bool>.from(data.completedDays);
-      updatedCompletedDays[todayIndex] = false;
+      
+      if (data.rollingWindowStart != null) {
+        // New sequential rolling array logic
+        final windowStart = DateTime(data.rollingWindowStart!.year, data.rollingWindowStart!.month, data.rollingWindowStart!.day);
+        final daysSinceStart = today.difference(windowStart).inDays;
+        
+        if (daysSinceStart >= 0 && daysSinceStart < 7) {
+          updatedCompletedDays[daysSinceStart] = false;
+        }
+      } else {
+        // Fallback to old weekday logic for unmigrated data
+        final todayIndex = (now.weekday - 1) % 7;
+        updatedCompletedDays[todayIndex] = false;
+      }
       
       // Reset lastActivityDate to yesterday if undoing today's activity
       DateTime? newLastActivityDate = data.lastActivityDate;
@@ -345,12 +393,119 @@ class GamificationRepository {
     // Also call the existing undo method to remove from daily_quests and quests
     await undoDailyQuest();
   }
+
+  /// Internal method to update rolling window in Firestore
+  Future<void> _updateRollingWindow(DateTime newWindowStart, List<bool> newCompletedDays) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+
+    final docRef = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('gamification')
+        .doc('data');
+
+    await docRef.update({
+      'rollingWindowStart': Timestamp.fromDate(newWindowStart),
+      'completedDays': newCompletedDays,
+    });
+  }
+
+  /// Calculate current streak based on rolling window data
+  int _calculateCurrentStreak(List<bool> completedDays, DateTime windowStart, DateTime today) {
+    final todayNormalized = DateTime(today.year, today.month, today.day);
+    final windowStartNormalized = DateTime(windowStart.year, windowStart.month, windowStart.day);
+    
+    // Find today's index in the rolling window
+    final todayIndex = todayNormalized.difference(windowStartNormalized).inDays;
+    
+    // If today is not in the window or not completed, streak is 0
+    if (todayIndex < 0 || todayIndex >= completedDays.length || !completedDays[todayIndex]) {
+      return 0;
+    }
+    
+    // Count consecutive days ending with today
+    int streak = 0;
+    for (int i = todayIndex; i >= 0; i--) {
+      if (completedDays[i]) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    
+    return streak;
+  }
 }
 
 final gamificationRepoProvider = Provider((ref) => GamificationRepository());
 
+// Optimized provider with local state caching for instant UI updates
 final gamificationProvider = StreamProvider.autoDispose<GamificationData>((ref) {
-  return ref.watch(gamificationRepoProvider).getGamificationData();
+  final repo = ref.watch(gamificationRepoProvider);
+  return repo.getGamificationData().asyncMap((data) async {
+    // Auto-migrate data in the stream to avoid blocking UI
+    if (data.rollingWindowStart == null) {
+      return data.migrateToRollingArray();
+    }
+    
+    // Check if rolling window needs to be updated for current day
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final windowStart = DateTime(data.rollingWindowStart!.year, data.rollingWindowStart!.month, data.rollingWindowStart!.day);
+    final daysSinceWindowStart = today.difference(windowStart).inDays;
+    
+    // If today is beyond the current window (> 6 days), update the window
+    if (daysSinceWindowStart > 6) {
+      print('🔄 Auto-updating rolling window: daysSinceStart = $daysSinceWindowStart');
+      
+      // Calculate new window start (6 days ago from today)
+      final newWindowStart = today.subtract(const Duration(days: 6));
+      
+      // Shift the data to the new window
+      final newDays = List<bool>.filled(7, false);
+      final shiftAmount = daysSinceWindowStart - 6;
+      
+      for (int i = 0; i < 7; i++) {
+        final oldIndex = i + shiftAmount;
+        if (oldIndex >= 0 && oldIndex < data.completedDays.length) {
+          newDays[i] = data.completedDays[oldIndex];
+        }
+      }
+      
+      // Update the window in Firestore
+      await repo._updateRollingWindow(newWindowStart, newDays);
+      
+      // Recalculate streak based on new window data
+      final recalculatedStreak = repo._calculateCurrentStreak(newDays, newWindowStart, today);
+      
+      // Return updated data
+      return GamificationData(
+        streak: recalculatedStreak,
+        lastActivityDate: data.lastActivityDate,
+        streakFreezeActive: data.streakFreezeActive,
+        completedDays: newDays,
+        rollingWindowStart: newWindowStart,
+      );
+    }
+    
+    // Always recalculate streak based on current window data for accuracy
+    final currentStreak = repo._calculateCurrentStreak(data.completedDays, data.rollingWindowStart!, today);
+    
+    // Return data with recalculated streak if it differs
+    if (currentStreak != data.streak) {
+      print('🔄 Recalculating streak: ${data.streak} → $currentStreak');
+      return GamificationData(
+        streak: currentStreak,
+        lastActivityDate: data.lastActivityDate,
+        streakFreezeActive: data.streakFreezeActive,
+        completedDays: data.completedDays,
+        rollingWindowStart: data.rollingWindowStart,
+      );
+    }
+    
+    return data;
+  });
 });
 
 final questsProvider = StreamProvider.autoDispose<List<Quest>>((ref) {

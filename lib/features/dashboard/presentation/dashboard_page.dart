@@ -160,6 +160,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
         // Check if data uses new sequential rolling array or old weekday format
         final useSequentialArray = gamificationData.rollingWindowStart != null;
         
+        
         if (useSequentialArray) {
           // New sequential rolling array - direct 1:1 mapping
           final windowStart = gamificationData.rollingWindowStart!;
@@ -176,6 +177,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                 ? gamificationData.completedDays[i] 
                 : false;
             rollingCompletedStatus.add(isCompleted);
+            
           }
         } else {
           // Legacy weekday-based mapping for backward compatibility
@@ -248,6 +250,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
       error: (err, stack) => Text('Error: $err'),
     );
   }
+
 
   Widget _buildTodaysConnectionPrompt(BuildContext context) {
     final isCompletedRemote = ref.watch(dailyQuestStatusProvider).value ?? false;
