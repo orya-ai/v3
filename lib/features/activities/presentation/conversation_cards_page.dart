@@ -8,6 +8,7 @@ import './widgets/conversation_card_widget.dart';
 import 'package:go_router/go_router.dart'; // Import go_router
 import '../../../core/theme/app_theme.dart';
 import '../../dashboard/application/activity_recorder.dart';
+import '../../dashboard/domain/gamification_model.dart';
 
 class ConversationCardsPage extends ConsumerStatefulWidget {
   const ConversationCardsPage({super.key});
@@ -114,6 +115,7 @@ class _ConversationCardsPageState extends ConsumerState<ConversationCardsPage> w
         ref,
         feature: 'Conversation Cards',
         action: 'Card Swiped',
+        activityType: ActivityType.conversationCard,
       );
       
       _animationController.reset();

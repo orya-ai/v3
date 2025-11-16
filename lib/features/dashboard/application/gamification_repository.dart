@@ -28,7 +28,9 @@ class GamificationRepository {
     });
   }
 
-  Future<void> recordActivity() async {
+  /// Records a specific activity type completion for today
+  /// [activityType] - The type of activity (e.g., 'dailyPrompt', 'conversationCard')
+  Future<void> recordActivity({required String activityType}) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('User not logged in');
 
@@ -44,18 +46,22 @@ class GamificationRepository {
       final today = DateTime(now.year, now.month, now.day);
 
       if (!snapshot.exists) {
-        // Create new data with sequential rolling array
+        // Create new data with sequential rolling array and activity tracking
         final windowStart = GamificationData.calculateRollingWindowStart();
-        final completedDays = List<bool>.filled(7, false);
-        completedDays[6] = true; // Today is at index 6
+        final activityCompletions = <String, List<bool>>{
+          activityType: List<bool>.filled(7, false)..[6] = true, // Today at index 6
+        };
+        final completedDays = GamificationData.deriveCompletedDays(activityCompletions);
         
         final newGamificationData = GamificationData(
           streak: 1,
           lastActivityDate: today,
           completedDays: completedDays,
           rollingWindowStart: windowStart,
+          activityCompletions: activityCompletions,
         );
         transaction.set(docRef, newGamificationData.toFirestore());
+        debugPrint('✅ Created new gamification data with activity: $activityType');
         return;
       }
 
@@ -65,90 +71,157 @@ class GamificationRepository {
       if (data.rollingWindowStart == null) {
         data = data.migrateToRollingArray();
       }
+      if (data.activityCompletions.isEmpty && data.completedDays.any((d) => d)) {
+        data = data.migrateToActivityTracking();
+      }
       
+      // Check if this specific activity was already recorded today
+      final windowStart = data.rollingWindowStart!;
+      final daysSinceStart = today.difference(DateTime(windowStart.year, windowStart.month, windowStart.day)).inDays;
+      
+      if (daysSinceStart >= 0 && daysSinceStart < 7) {
+        if (data.isActivityCompleted(activityType, daysSinceStart)) {
+          debugPrint('⚠️ Activity "$activityType" already recorded for today (index $daysSinceStart)');
+          return; // This specific activity already recorded today
+        }
+      }
+      
+      // Update activity completions with new activity
+      final updatedActivityCompletions = _updateActivityCompletions(
+        data.activityCompletions,
+        activityType,
+        windowStart,
+        today,
+      );
+      
+      // Derive completedDays from all activities
+      final updatedCompletedDays = GamificationData.deriveCompletedDays(updatedActivityCompletions);
+      
+      // Recalculate streak based on updated completedDays
+      final newStreak = _calculateStreakFromCompletedDays(updatedCompletedDays, windowStart, today);
+      
+      // Update lastActivityDate only if this is the first activity today
+      DateTime newLastActivityDate = today;
+      bool newStreakFreezeActive = data.streakFreezeActive;
+      
+      // Check if any activity was completed yesterday for streak continuation logic
       final lastActivity = data.lastActivityDate;
-
       if (lastActivity != null) {
         final lastActivityDate = DateTime(lastActivity.year, lastActivity.month, lastActivity.day);
-        if (lastActivityDate.isAtSameMomentAs(today)) {
-          debugPrint('Activity already recorded today.');
-          return; // Already recorded today
-        }
-
         final difference = today.difference(lastActivityDate).inDays;
-        int newStreak = data.streak;
-        bool newStreakFreezeActive = data.streakFreezeActive;
-
-        if (difference == 1) {
-          newStreak++;
-        } else if (difference > 1) {
+        
+        // Handle streak freeze logic
+        if (difference > 1) {
           if (data.streakFreezeActive && difference == 2) {
             newStreakFreezeActive = false; // Consume the streak freeze
-          } else {
-            newStreak = 1; // Streak is broken
           }
         }
-
-        final updatedData = GamificationData(
-          streak: newStreak,
-          lastActivityDate: today,
-          streakFreezeActive: newStreakFreezeActive,
-          completedDays: _getUpdatedRollingArray(data.completedDays, data.rollingWindowStart!, today),
-          rollingWindowStart: data.rollingWindowStart,
-        );
-        transaction.update(docRef, updatedData.toFirestore());
-
-      } else {
-        // No last activity date, start a new streak
-        final updatedData = GamificationData(
-          streak: 1,
-          lastActivityDate: today,
-          completedDays: _getUpdatedRollingArray(data.completedDays, data.rollingWindowStart!, today),
-          rollingWindowStart: data.rollingWindowStart,
-        );
-        transaction.update(docRef, updatedData.toFirestore());
       }
+
+      final updatedData = GamificationData(
+        streak: newStreak,
+        lastActivityDate: newLastActivityDate,
+        streakFreezeActive: newStreakFreezeActive,
+        completedDays: updatedCompletedDays,
+        rollingWindowStart: data.rollingWindowStart,
+        activityCompletions: updatedActivityCompletions,
+      );
+      
+      transaction.update(docRef, updatedData.toFirestore());
+      debugPrint('✅ Recorded activity "$activityType" for today. New streak: $newStreak');
     });
   }
 
-  /// Updates sequential rolling array with today's activity
-  List<bool> _getUpdatedRollingArray(List<bool> currentDays, DateTime windowStart, DateTime today) {
+  /// Updates activity completions map with a new activity for today
+  Map<String, List<bool>> _updateActivityCompletions(
+    Map<String, List<bool>> currentCompletions,
+    String activityType,
+    DateTime windowStart,
+    DateTime today,
+  ) {
     final windowStartNormalized = DateTime(windowStart.year, windowStart.month, windowStart.day);
     final todayNormalized = DateTime(today.year, today.month, today.day);
-    
-    // Check if we need to shift the window forward
     final daysSinceWindowStart = todayNormalized.difference(windowStartNormalized).inDays;
     
-    if (daysSinceWindowStart < 6) {
-      // Today is before the expected position, shouldn't happen in normal flow
-      final updatedDays = List<bool>.from(currentDays);
-      if (daysSinceWindowStart >= 0 && daysSinceWindowStart < 7) {
-        updatedDays[daysSinceWindowStart] = true;
-      }
-      return updatedDays;
-    } else if (daysSinceWindowStart == 6) {
-      // Today is at the correct position (index 6)
-      final updatedDays = List<bool>.from(currentDays);
-      updatedDays[6] = true;
-      return updatedDays;
-    } else {
-      // Window needs to shift forward - create new window with today at index 6
-      final newWindowStart = GamificationData.calculateRollingWindowStart();
-      final newDays = List<bool>.filled(7, false);
-      
-      // Copy relevant data from old window to new positions
+    // Create a copy of the current completions
+    final updatedCompletions = Map<String, List<bool>>.from(currentCompletions);
+    
+    // Get or create the activity array for this type
+    List<bool> activityArray = updatedCompletions.containsKey(activityType)
+        ? List<bool>.from(updatedCompletions[activityType]!)
+        : List<bool>.filled(7, false);
+    
+    // Handle window shifting if needed
+    if (daysSinceWindowStart > 6) {
+      // Window needs to shift - shift all activity arrays
       final shiftAmount = daysSinceWindowStart - 6;
-      for (int i = 0; i < 7; i++) {
-        final oldIndex = i + shiftAmount;
-        if (oldIndex >= 0 && oldIndex < currentDays.length) {
-          newDays[i] = currentDays[oldIndex];
+      final newCompletions = <String, List<bool>>{};
+      
+      for (final entry in updatedCompletions.entries) {
+        final newArray = List<bool>.filled(7, false);
+        for (int i = 0; i < 7; i++) {
+          final oldIndex = i + shiftAmount;
+          if (oldIndex >= 0 && oldIndex < entry.value.length) {
+            newArray[i] = entry.value[oldIndex];
+          }
         }
+        newCompletions[entry.key] = newArray;
       }
       
-      // Mark today as completed
-      newDays[6] = true;
-      return newDays;
+      // Update the current activity array
+      activityArray = newCompletions.containsKey(activityType)
+          ? List<bool>.from(newCompletions[activityType]!)
+          : List<bool>.filled(7, false);
+      activityArray[6] = true; // Mark today
+      newCompletions[activityType] = activityArray;
+      
+      return newCompletions;
+    } else if (daysSinceWindowStart >= 0 && daysSinceWindowStart < 7) {
+      // Mark the activity for today
+      activityArray[daysSinceWindowStart] = true;
+      updatedCompletions[activityType] = activityArray;
+      return updatedCompletions;
     }
+    
+    return updatedCompletions;
+  }
+  
+  /// Calculates streak from completedDays array
+  /// Counts consecutive days ending with today (if completed) or yesterday (if today not completed)
+  int _calculateStreakFromCompletedDays(List<bool> completedDays, DateTime windowStart, DateTime today) {
+    final todayNormalized = DateTime(today.year, today.month, today.day);
+    final windowStartNormalized = DateTime(windowStart.year, windowStart.month, windowStart.day);
+    final todayIndex = todayNormalized.difference(windowStartNormalized).inDays;
+    
+    // If today is not in the window, streak is 0
+    if (todayIndex < 0 || todayIndex >= completedDays.length) {
+      return 0;
+    }
+    
+    // Determine starting point: today if completed, otherwise yesterday
+    int startIndex = todayIndex;
+    if (!completedDays[todayIndex]) {
+      // Today not completed, check yesterday
+      if (todayIndex == 0) {
+        return 0; // No previous days in window
+      }
+      startIndex = todayIndex - 1;
+      if (!completedDays[startIndex]) {
+        return 0; // Yesterday also not completed, streak is broken
+      }
+    }
+    
+    // Count consecutive days from startIndex backwards
+    int streak = 0;
+    for (int i = startIndex; i >= 0; i--) {
+      if (completedDays[i]) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    
+    return streak;
   }
 
   /// Legacy method for backward compatibility
@@ -328,7 +401,10 @@ class GamificationRepository {
     });
   }
 
-  Future<void> markTodayAsNotCompleted() async {
+  /// Marks a specific activity as not completed for today
+  /// Only removes the specified activity - other activities remain intact
+  /// [activityType] - The type of activity to undo (e.g., 'dailyPrompt', 'conversationCard')
+  Future<void> markActivityAsNotCompleted({required String activityType}) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('User not logged in');
     
@@ -348,48 +424,66 @@ class GamificationRepository {
       if (data.rollingWindowStart == null) {
         data = data.migrateToRollingArray();
       }
+      if (data.activityCompletions.isEmpty && data.completedDays.any((d) => d)) {
+        data = data.migrateToActivityTracking();
+      }
       
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
+      final windowStart = DateTime(data.rollingWindowStart!.year, data.rollingWindowStart!.month, data.rollingWindowStart!.day);
+      final daysSinceStart = today.difference(windowStart).inDays;
       
-      // Update completedDays using sequential rolling array logic
-      final updatedCompletedDays = List<bool>.from(data.completedDays);
+      // Remove the specific activity from today
+      final updatedActivityCompletions = Map<String, List<bool>>.from(data.activityCompletions);
       
-      if (data.rollingWindowStart != null) {
-        // New sequential rolling array logic
-        final windowStart = DateTime(data.rollingWindowStart!.year, data.rollingWindowStart!.month, data.rollingWindowStart!.day);
-        final daysSinceStart = today.difference(windowStart).inDays;
-        
-        if (daysSinceStart >= 0 && daysSinceStart < 7) {
-          updatedCompletedDays[daysSinceStart] = false;
+      if (daysSinceStart >= 0 && daysSinceStart < 7) {
+        if (updatedActivityCompletions.containsKey(activityType)) {
+          final activityArray = List<bool>.from(updatedActivityCompletions[activityType]!);
+          activityArray[daysSinceStart] = false;
+          updatedActivityCompletions[activityType] = activityArray;
+          debugPrint('🔄 Unmarked activity "$activityType" for today (index $daysSinceStart)');
         }
-      } else {
-        // Fallback to old weekday logic for unmigrated data
-        final todayIndex = (now.weekday - 1) % 7;
-        updatedCompletedDays[todayIndex] = false;
       }
       
-      // Reset lastActivityDate to yesterday if undoing today's activity
+      // Recalculate completedDays from remaining activities
+      final updatedCompletedDays = GamificationData.deriveCompletedDays(updatedActivityCompletions);
+      
+      // Recalculate streak based on actual completedDays
+      final newStreak = _calculateStreakFromCompletedDays(updatedCompletedDays, windowStart, today);
+      
+      // Update lastActivityDate based on recalculated data
       DateTime? newLastActivityDate = data.lastActivityDate;
-      if (data.lastActivityDate != null) {
-        final lastActivity = DateTime(data.lastActivityDate!.year, data.lastActivityDate!.month, data.lastActivityDate!.day);
-        final today = DateTime(now.year, now.month, now.day);
-        if (lastActivity.isAtSameMomentAs(today)) {
-          // If we're undoing today's activity, set lastActivityDate to yesterday (if there was a streak)
-          newLastActivityDate = data.streak > 1 ? today.subtract(const Duration(days: 1)) : null;
+      if (newStreak == 0) {
+        // No activities today, check if there are activities yesterday
+        if (daysSinceStart > 0 && updatedCompletedDays[daysSinceStart - 1]) {
+          newLastActivityDate = today.subtract(const Duration(days: 1));
+        } else {
+          newLastActivityDate = null;
         }
+      } else {
+        // Still have activities today, keep lastActivityDate as today
+        newLastActivityDate = today;
       }
 
       final updatedData = GamificationData(
-        streak: data.streak > 0 ? data.streak - 1 : 0, // Reduce streak by 1
+        streak: newStreak,
         lastActivityDate: newLastActivityDate,
         streakFreezeActive: data.streakFreezeActive,
         completedDays: updatedCompletedDays,
+        rollingWindowStart: data.rollingWindowStart,
+        activityCompletions: updatedActivityCompletions,
       );
       
       transaction.update(docRef, updatedData.toFirestore());
+      debugPrint('✅ Activity "$activityType" removed. New streak: $newStreak');
     });
-
+  }
+  
+  /// Legacy method - kept for backward compatibility
+  /// Use markActivityAsNotCompleted() instead
+  @Deprecated('Use markActivityAsNotCompleted(activityType: "dailyPrompt") instead')
+  Future<void> markTodayAsNotCompleted() async {
+    await markActivityAsNotCompleted(activityType: 'dailyPrompt');
     // Also call the existing undo method to remove from daily_quests and quests
     await undoDailyQuest();
   }
@@ -412,6 +506,7 @@ class GamificationRepository {
   }
 
   /// Calculate current streak based on rolling window data
+  /// Counts consecutive days ending with today (if completed) or yesterday (if today not completed)
   int _calculateCurrentStreak(List<bool> completedDays, DateTime windowStart, DateTime today) {
     final todayNormalized = DateTime(today.year, today.month, today.day);
     final windowStartNormalized = DateTime(windowStart.year, windowStart.month, windowStart.day);
@@ -419,14 +514,27 @@ class GamificationRepository {
     // Find today's index in the rolling window
     final todayIndex = todayNormalized.difference(windowStartNormalized).inDays;
     
-    // If today is not in the window or not completed, streak is 0
-    if (todayIndex < 0 || todayIndex >= completedDays.length || !completedDays[todayIndex]) {
+    // If today is not in the window, streak is 0
+    if (todayIndex < 0 || todayIndex >= completedDays.length) {
       return 0;
     }
     
-    // Count consecutive days ending with today
+    // Determine starting point: today if completed, otherwise yesterday
+    int startIndex = todayIndex;
+    if (!completedDays[todayIndex]) {
+      // Today not completed, check yesterday
+      if (todayIndex == 0) {
+        return 0; // No previous days in window
+      }
+      startIndex = todayIndex - 1;
+      if (!completedDays[startIndex]) {
+        return 0; // Yesterday also not completed, streak is broken
+      }
+    }
+    
+    // Count consecutive days from startIndex backwards
     int streak = 0;
-    for (int i = todayIndex; i >= 0; i--) {
+    for (int i = startIndex; i >= 0; i--) {
       if (completedDays[i]) {
         streak++;
       } else {
@@ -445,9 +553,15 @@ final gamificationProvider = StreamProvider.autoDispose<GamificationData>((ref) 
   final repo = ref.watch(gamificationRepoProvider);
   return repo.getGamificationData().asyncMap((data) async {
     // Auto-migrate data in the stream to avoid blocking UI
-    if (data.rollingWindowStart == null) {
-      return data.migrateToRollingArray();
+    var migratedData = data;
+    if (migratedData.rollingWindowStart == null) {
+      migratedData = migratedData.migrateToRollingArray();
     }
+    // Migrate to activity tracking if needed
+    if (migratedData.activityCompletions.isEmpty && migratedData.completedDays.any((d) => d)) {
+      migratedData = migratedData.migrateToActivityTracking();
+    }
+    data = migratedData;
     
     // Check if rolling window needs to be updated for current day
     final now = DateTime.now();
@@ -486,6 +600,7 @@ final gamificationProvider = StreamProvider.autoDispose<GamificationData>((ref) 
         streakFreezeActive: data.streakFreezeActive,
         completedDays: newDays,
         rollingWindowStart: newWindowStart,
+        activityCompletions: data.activityCompletions,
       );
     }
     
@@ -501,6 +616,7 @@ final gamificationProvider = StreamProvider.autoDispose<GamificationData>((ref) 
         streakFreezeActive: data.streakFreezeActive,
         completedDays: data.completedDays,
         rollingWindowStart: data.rollingWindowStart,
+        activityCompletions: data.activityCompletions,
       );
     }
     

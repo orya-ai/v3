@@ -13,6 +13,7 @@ import 'package:orya/features/dashboard/presentation/activity_calendar_page.dart
 import 'package:intl/intl.dart';
 import 'package:orya/features/dashboard/presentation/quests_page.dart';
 import 'package:orya/features/dashboard/domain/quest_model.dart';
+import 'package:orya/features/dashboard/domain/gamification_model.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -30,6 +31,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
   // Optimistic local override for completion state.
   // null => follow backend; true/false => force UI state immediately.
   bool? _completedOverride;
+  // Prevent multiple simultaneous undo operations
+  bool _isUndoing = false;
 
   @override
   void initState() {
@@ -96,14 +99,24 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
   @override
   Widget build(BuildContext context) {
     // Clear local override once backend/provider matches our optimistic state
+    // AND reload the prompt when completion status changes
     ref.listen<AsyncValue<bool>>(dailyQuestStatusProvider, (previous, next) {
-      final v = next.value;
-      if (v != null && _completedOverride != null && v == _completedOverride) {
+      final prevValue = previous?.value;
+      final nextValue = next.value;
+      
+      // Clear override when backend matches
+      if (nextValue != null && _completedOverride != null && nextValue == _completedOverride) {
         if (mounted) {
           setState(() {
             _completedOverride = null;
           });
         }
+      }
+      
+      // Reload prompt when completion status actually changes
+      if (prevValue != null && nextValue != null && prevValue != nextValue) {
+        debugPrint('📝 Daily quest status changed: $prevValue → $nextValue, reloading prompt');
+        _loadDailyPrompt();
       }
     });
 
@@ -389,21 +402,57 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
         const SizedBox(height: 10),
         TextButton(
           onPressed: () async {
-            if (!mounted) return;
-            // Optimistically revert UI immediately
+            if (!mounted || _isUndoing) return;
+            
+            // Prevent multiple simultaneous undo operations
             setState(() {
-              _completedOverride = false;
+              _isUndoing = true;
             });
-            // Smooth reverse back to initial state
-            final start = _controller.value == 0.0 ? 1.0 : _controller.value;
-            _controller.reverse(from: start);
-            Vibration.cancel();
-            // Persist undo to Firebase (removes today's completion and updates gamification)
-            unawaited(ref.read(gamificationRepoProvider).markTodayAsNotCompleted());
+            
+            try {
+              // Optimistically revert UI immediately
+              setState(() {
+                _completedOverride = false;
+              });
+              
+              // Smooth reverse back to initial state
+              final start = _controller.value == 0.0 ? 1.0 : _controller.value;
+              _controller.reverse(from: start);
+              Vibration.cancel();
+              
+              // Persist undo to Firebase - only removes daily prompt activity
+              // Other activities (conversation cards, etc.) remain intact
+              final repo = ref.read(gamificationRepoProvider);
+              
+              // Execute both operations and wait for completion
+              await Future.wait([
+                repo.markActivityAsNotCompleted(activityType: ActivityType.dailyPrompt),
+                repo.undoDailyQuest(),
+              ]);
+              
+              debugPrint('✅ Undo completed successfully');
+            } catch (e) {
+              debugPrint('❌ Error during undo: $e');
+              // Revert optimistic update on error
+              if (mounted) {
+                setState(() {
+                  _completedOverride = true;
+                });
+              }
+            } finally {
+              // Re-enable undo button
+              if (mounted) {
+                setState(() {
+                  _isUndoing = false;
+                });
+              }
+            }
           },
-          child: const Text(
-            'Undo',
-            style: TextStyle(color: Colors.white70),
+          child: Text(
+            _isUndoing ? 'Undoing...' : 'Undo',
+            style: TextStyle(
+              color: _isUndoing ? Colors.white38 : Colors.white70,
+            ),
           ),
         ),
       ],
@@ -771,6 +820,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
         ref,
         feature: 'Daily Prompt',
         action: 'Quest Completed',
+        activityType: ActivityType.dailyPrompt,
       );
     } catch (e) {
       print('Error creating quest: $e');
