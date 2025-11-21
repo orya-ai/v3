@@ -5,7 +5,7 @@ class ActivityType {
   static const String dailyPrompt = 'dailyPrompt';
   static const String conversationCard = 'conversationCard';
   static const String rouletteSpin = 'rouletteSpin';
-  
+
   static const List<String> all = [
     dailyPrompt,
     conversationCard,
@@ -15,199 +15,153 @@ class ActivityType {
 
 class GamificationData {
   final int streak;
-  final DateTime? lastActivityDate;
-  final bool streakFreezeActive;
-  final List<bool> completedDays; // Derived from activityCompletions (any activity = day completed)
-  final DateTime? rollingWindowStart; // Track rolling window start date
-  
-  /// Per-activity completion tracking: Map of activityType to List of bool
-  /// Each activity type has its own 7-day rolling array
-  /// Example: dailyPrompt: [false, true, true, ...], conversationCard: [true, false, true, ...]
-  final Map<String, List<bool>> activityCompletions;
+  final Map<String, Map<String, bool>> days;
+
+  static const Set<String> streakActivityTypes = {
+    ActivityType.dailyPrompt,
+    ActivityType.conversationCard,
+  };
 
   GamificationData({
     required this.streak,
-    this.lastActivityDate,
-    this.streakFreezeActive = false,
-    required this.completedDays,
-    this.rollingWindowStart,
-    Map<String, List<bool>>? activityCompletions,
-  }) : activityCompletions = activityCompletions ?? {};
+    Map<String, Map<String, bool>>? days,
+  }) : days = days ?? {};
 
-  /// Checks if a specific activity was completed on a given day index
-  bool isActivityCompleted(String activityType, int dayIndex) {
-    if (!activityCompletions.containsKey(activityType)) return false;
-    final activities = activityCompletions[activityType]!;
-    return dayIndex >= 0 && dayIndex < activities.length && activities[dayIndex];
+  static String dateKeyFromDate(DateTime date) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    final year = normalized.year.toString().padLeft(4, '0');
+    final month = normalized.month.toString().padLeft(2, '0');
+    final day = normalized.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
   }
-  
-  /// Checks if ANY activity was completed on a given day index
-  bool isAnyActivityCompleted(int dayIndex) {
-    for (final activityList in activityCompletions.values) {
-      if (dayIndex >= 0 && dayIndex < activityList.length && activityList[dayIndex]) {
+
+  static DateTime? dateFromKey(String key) {
+    final parts = key.split('-');
+    if (parts.length != 3) return null;
+    final year = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final day = int.tryParse(parts[2]);
+    if (year == null || month == null || day == null) return null;
+    return DateTime(year, month, day);
+  }
+
+  bool isAnyCompletedOn(DateTime date) {
+    return _isAnyCompletedOnDate(days, date);
+  }
+
+  Map<String, bool> activitiesOn(DateTime date) {
+    final key = dateKeyFromDate(date);
+    final dayActivities = days[key];
+    if (dayActivities == null) {
+      return const <String, bool>{};
+    }
+    return Map<String, bool>.fromEntries(
+      dayActivities.entries.map(
+        (e) => MapEntry(e.key, e.value == true),
+      ),
+    );
+  }
+
+  Iterable<DateTime> get completedDates {
+    final result = <DateTime>[];
+    for (final entry in days.entries) {
+      final date = dateFromKey(entry.key);
+      if (date == null) {
+        continue;
+      }
+      final normalized = DateTime(date.year, date.month, date.day);
+      if (_isAnyCompletedOnDate(days, normalized)) {
+        result.add(normalized);
+      }
+    }
+    result.sort((a, b) => a.compareTo(b));
+    return result;
+  }
+
+  GamificationData copyWith({
+    int? streak,
+    Map<String, Map<String, bool>>? days,
+  }) {
+    return GamificationData(
+      streak: streak ?? this.streak,
+      days: days ?? this.days,
+    );
+  }
+
+  factory GamificationData.fromFirestore(Map<String, dynamic> data) {
+    final rawDays = data['days'];
+    final parsedDays = <String, Map<String, bool>>{};
+
+    if (rawDays is Map<String, dynamic>) {
+      rawDays.forEach((dateKey, value) {
+        if (value is Map<String, dynamic>) {
+          final inner = <String, bool>{};
+          value.forEach((activityType, flag) {
+            inner[activityType] = flag == true;
+          });
+          parsedDays[dateKey] = inner;
+        }
+      });
+    }
+
+    final storedStreak = data['streak'];
+    int streak = 0;
+    if (parsedDays.isNotEmpty && storedStreak is int) {
+      streak = storedStreak;
+    }
+
+    return GamificationData(
+      streak: streak,
+      days: parsedDays,
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    final daysMap = <String, dynamic>{};
+    days.forEach((dateKey, activities) {
+      daysMap[dateKey] = activities;
+    });
+
+    return {
+      'streak': streak,
+      'days': daysMap,
+    };
+  }
+
+  static bool _isAnyCompletedOnDate(
+    Map<String, Map<String, bool>> days,
+    DateTime date,
+  ) {
+    final key = dateKeyFromDate(date);
+    final activities = days[key];
+    if (activities == null) {
+      return false;
+    }
+    for (final entry in activities.entries) {
+      if (streakActivityTypes.contains(entry.key) && entry.value == true) {
         return true;
       }
     }
     return false;
   }
-  
-  /// Derives completedDays array from activityCompletions
-  /// A day is considered completed if ANY activity was completed that day
-  static List<bool> deriveCompletedDays(Map<String, List<bool>> activityCompletions) {
-    final completedDays = List<bool>.filled(7, false);
-    
-    for (int dayIndex = 0; dayIndex < 7; dayIndex++) {
-      for (final activityList in activityCompletions.values) {
-        if (dayIndex < activityList.length && activityList[dayIndex]) {
-          completedDays[dayIndex] = true;
-          break; // Day is completed, no need to check other activities
-        }
-      }
-    }
-    
-    return completedDays;
-  }
 
-  /// Gets today's completion status using sequential rolling array
-  bool get isDailyQuestCompleted {
-    if (rollingWindowStart == null) {
-      // Fallback to old weekday-based logic for migration
-      final now = DateTime.now();
-      final todayIndex = (now.weekday - 1) % 7;
-      return completedDays.length > todayIndex ? completedDays[todayIndex] : false;
-    }
-    
-    // New sequential rolling array logic
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final windowStart = DateTime(rollingWindowStart!.year, rollingWindowStart!.month, rollingWindowStart!.day);
-    final daysSinceStart = today.difference(windowStart).inDays;
-    
-    // Today should be at index 6 (last position) in a 7-day rolling window
-    return daysSinceStart == 6 && completedDays.length > 6 ? completedDays[6] : false;
-  }
-
-  /// Creates a new rolling window starting from 6 days ago
-  static DateTime calculateRollingWindowStart() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    return today.subtract(const Duration(days: 6));
-  }
-
-  factory GamificationData.fromFirestore(Map<String, dynamic> data) {
-    // Parse activityCompletions map if it exists
-    Map<String, List<bool>> activityCompletions = {};
-    if (data['activityCompletions'] != null) {
-      final rawMap = data['activityCompletions'] as Map<String, dynamic>;
-      rawMap.forEach((key, value) {
-        activityCompletions[key] = List<bool>.from(value as List);
-      });
-    }
-    
-    // Derive completedDays from activityCompletions, or use legacy field
-    List<bool> completedDays;
-    if (activityCompletions.isNotEmpty) {
-      completedDays = deriveCompletedDays(activityCompletions);
-    } else {
-      completedDays = List<bool>.from(data['completedDays'] ?? List.generate(7, (_) => false));
-    }
-    
-    return GamificationData(
-      streak: data['streak'] ?? 0,
-      lastActivityDate: (data['lastActivityDate'] as Timestamp?)?.toDate(),
-      streakFreezeActive: data['streakFreezeActive'] ?? false,
-      completedDays: completedDays,
-      rollingWindowStart: (data['rollingWindowStart'] as Timestamp?)?.toDate(),
-      activityCompletions: activityCompletions,
-    );
-  }
-
-  Map<String, dynamic> toFirestore() {
-    // Convert activityCompletions map to Firestore-compatible format
-    final Map<String, dynamic> activityCompletionsMap = {};
-    activityCompletions.forEach((key, value) {
-      activityCompletionsMap[key] = value;
-    });
-    
-    return {
-      'streak': streak,
-      'lastActivityDate': lastActivityDate != null ? Timestamp.fromDate(lastActivityDate!) : null,
-      'streakFreezeActive': streakFreezeActive,
-      'completedDays': completedDays, // Keep for backward compatibility
-      'rollingWindowStart': rollingWindowStart != null ? Timestamp.fromDate(rollingWindowStart!) : null,
-      'activityCompletions': activityCompletionsMap, // New field
-    };
-  }
-
-  /// Migrates old weekday-based data to new sequential rolling array
-  GamificationData migrateToRollingArray() {
-    if (rollingWindowStart != null) {
-      return this; // Already migrated
+  static int computeCurrentStreak(
+    Map<String, Map<String, bool>> days,
+    DateTime today,
+  ) {
+    final todayNormalized = DateTime(today.year, today.month, today.day);
+    if (!_isAnyCompletedOnDate(days, todayNormalized)) {
+      return 0;
     }
 
-    final newWindowStart = calculateRollingWindowStart();
-    final newCompletedDays = List<bool>.filled(7, false);
+    int streak = 0;
+    var cursor = todayNormalized;
 
-    // Map old weekday data to new rolling array positions
-    for (int i = 0; i < 7; i++) {
-      final date = newWindowStart.add(Duration(days: i));
-      final weekdayIndex = (date.weekday - 1) % 7;
-      
-      // Copy completion status from old weekday array if it exists
-      if (weekdayIndex < completedDays.length) {
-        newCompletedDays[i] = completedDays[weekdayIndex];
-      }
+    while (_isAnyCompletedOnDate(days, cursor)) {
+      streak++;
+      cursor = cursor.subtract(const Duration(days: 1));
     }
 
-    return GamificationData(
-      streak: streak,
-      lastActivityDate: lastActivityDate,
-      streakFreezeActive: streakFreezeActive,
-      completedDays: newCompletedDays,
-      rollingWindowStart: newWindowStart,
-      activityCompletions: activityCompletions,
-    );
-  }
-  
-  /// Migrates from single completedDays boolean array to per-activity tracking
-  /// This is called when activityCompletions is empty but completedDays has data
-  GamificationData migrateToActivityTracking() {
-    if (activityCompletions.isNotEmpty) {
-      return this; // Already using activity tracking
-    }
-    
-    // Create activity completions map from legacy completedDays
-    // Mark all completed days as 'unknown' activity type for backward compatibility
-    final Map<String, List<bool>> newActivityCompletions = {
-      'legacy': List<bool>.from(completedDays),
-    };
-    
-    return GamificationData(
-      streak: streak,
-      lastActivityDate: lastActivityDate,
-      streakFreezeActive: streakFreezeActive,
-      completedDays: completedDays,
-      rollingWindowStart: rollingWindowStart,
-      activityCompletions: newActivityCompletions,
-    );
-  }
-  
-  /// Creates a copy with updated fields
-  GamificationData copyWith({
-    int? streak,
-    DateTime? lastActivityDate,
-    bool? streakFreezeActive,
-    List<bool>? completedDays,
-    DateTime? rollingWindowStart,
-    Map<String, List<bool>>? activityCompletions,
-  }) {
-    return GamificationData(
-      streak: streak ?? this.streak,
-      lastActivityDate: lastActivityDate ?? this.lastActivityDate,
-      streakFreezeActive: streakFreezeActive ?? this.streakFreezeActive,
-      completedDays: completedDays ?? this.completedDays,
-      rollingWindowStart: rollingWindowStart ?? this.rollingWindowStart,
-      activityCompletions: activityCompletions ?? this.activityCompletions,
-    );
+    return streak;
   }
 }

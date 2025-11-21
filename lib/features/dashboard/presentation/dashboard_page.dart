@@ -164,51 +164,22 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
 
     return gamificationState.when(
       data: (gamificationData) {
-        // Generate rolling 7-day window with today at the far right
+        // Generate rolling 7-day window (last 6 days + today) based on real calendar dates
         final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
         final List<DateTime> rollingDays = [];
         final List<String> rollingDayLabels = [];
         final List<bool> rollingCompletedStatus = [];
-        
-        // Check if data uses new sequential rolling array or old weekday format
-        final useSequentialArray = gamificationData.rollingWindowStart != null;
-        
-        
-        if (useSequentialArray) {
-          // New sequential rolling array - direct 1:1 mapping
-          final windowStart = gamificationData.rollingWindowStart!;
-          for (int i = 0; i < 7; i++) {
-            final date = windowStart.add(Duration(days: i));
-            rollingDays.add(date);
-            
-            // Get short day name (Mon, Tue, etc.)
-            final dayLabel = DateFormat.E().format(date);
-            rollingDayLabels.add(dayLabel);
-            
-            // Direct sequential mapping - much cleaner!
-            final isCompleted = i < gamificationData.completedDays.length 
-                ? gamificationData.completedDays[i] 
-                : false;
-            rollingCompletedStatus.add(isCompleted);
-            
-          }
-        } else {
-          // Legacy weekday-based mapping for backward compatibility
-          for (int i = 6; i >= 0; i--) {
-            final date = now.subtract(Duration(days: i));
-            rollingDays.add(date);
-            
-            // Get short day name (Mon, Tue, etc.)
-            final dayLabel = DateFormat.E().format(date);
-            rollingDayLabels.add(dayLabel);
-            
-            // Map to the backend's fixed week array (Mon=0, Sun=6)
-            final weekdayIndex = (date.weekday - 1) % 7;
-            final isCompleted = weekdayIndex < gamificationData.completedDays.length
-                ? gamificationData.completedDays[weekdayIndex]
-                : false;
-            rollingCompletedStatus.add(isCompleted);
-          }
+
+        for (int i = 6; i >= 0; i--) {
+          final date = today.subtract(Duration(days: i));
+          rollingDays.add(date);
+
+          final dayLabel = DateFormat.E().format(date);
+          rollingDayLabels.add(dayLabel);
+
+          final isCompleted = gamificationData.isAnyCompletedOn(date);
+          rollingCompletedStatus.add(isCompleted);
         }
 
         return GestureDetector(
@@ -251,7 +222,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                   rollingDays,
                   rollingDayLabels,
                   rollingCompletedStatus,
-                  now,
+                  today,
                 ),
                 const SizedBox(height: 15),
               ],

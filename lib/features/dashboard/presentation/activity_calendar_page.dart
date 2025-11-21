@@ -72,18 +72,7 @@ class _ActivityCalendarPageState extends ConsumerState<ActivityCalendarPage> {
   }
 
   Widget _buildCalendar(GamificationData gamificationData) {
-    // Convert completedDays array to Set<DateTime> for calendar
-    final Set<DateTime> allActivities = <DateTime>{};
-    final now = DateTime.now();
-    
-    // Add activities from the current week's completedDays
-    for (int i = 0; i < gamificationData.completedDays.length; i++) {
-      if (gamificationData.completedDays[i]) {
-        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        final dayDate = startOfWeek.add(Duration(days: i));
-        allActivities.add(DateTime(dayDate.year, dayDate.month, dayDate.day));
-      }
-    }
+    final Set<DateTime> allActivities = gamificationData.completedDates.toSet();
 
     return Scaffold(
       appBar: AppBar(

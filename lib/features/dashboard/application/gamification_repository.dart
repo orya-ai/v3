@@ -22,7 +22,7 @@ class GamificationRepository {
 
     return docRef.snapshots().map((snapshot) {
       if (!snapshot.exists || snapshot.data() == null) {
-        return GamificationData(streak: 0, completedDays: List.generate(7, (_) => false));
+        return GamificationData(streak: 0);
       }
       return GamificationData.fromFirestore(snapshot.data()!);
     });
@@ -44,232 +44,45 @@ class GamificationRepository {
       final snapshot = await transaction.get(docRef);
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
+      final todayKey = GamificationData.dateKeyFromDate(today);
 
-      if (!snapshot.exists) {
-        // Create new data with sequential rolling array and activity tracking
-        final windowStart = GamificationData.calculateRollingWindowStart();
-        final activityCompletions = <String, List<bool>>{
-          activityType: List<bool>.filled(7, false)..[6] = true, // Today at index 6
+      if (!snapshot.exists || snapshot.data() == null) {
+        final days = <String, Map<String, bool>>{
+          todayKey: {activityType: true},
         };
-        final completedDays = GamificationData.deriveCompletedDays(activityCompletions);
-        
+        final newStreak = GamificationData.computeCurrentStreak(days, today);
         final newGamificationData = GamificationData(
-          streak: 1,
-          lastActivityDate: today,
-          completedDays: completedDays,
-          rollingWindowStart: windowStart,
-          activityCompletions: activityCompletions,
+          streak: newStreak,
+          days: days,
         );
         transaction.set(docRef, newGamificationData.toFirestore());
         debugPrint('✅ Created new gamification data with activity: $activityType');
         return;
       }
 
-      var data = GamificationData.fromFirestore(snapshot.data()!);
-      
-      // Migrate old data if needed
-      if (data.rollingWindowStart == null) {
-        data = data.migrateToRollingArray();
-      }
-      if (data.activityCompletions.isEmpty && data.completedDays.any((d) => d)) {
-        data = data.migrateToActivityTracking();
-      }
-      
-      // Check if this specific activity was already recorded today
-      final windowStart = data.rollingWindowStart!;
-      final daysSinceStart = today.difference(DateTime(windowStart.year, windowStart.month, windowStart.day)).inDays;
-      
-      if (daysSinceStart >= 0 && daysSinceStart < 7) {
-        if (data.isActivityCompleted(activityType, daysSinceStart)) {
-          debugPrint('⚠️ Activity "$activityType" already recorded for today (index $daysSinceStart)');
-          return; // This specific activity already recorded today
-        }
-      }
-      
-      // Update activity completions with new activity
-      final updatedActivityCompletions = _updateActivityCompletions(
-        data.activityCompletions,
-        activityType,
-        windowStart,
-        today,
-      );
-      
-      // Derive completedDays from all activities
-      final updatedCompletedDays = GamificationData.deriveCompletedDays(updatedActivityCompletions);
-      
-      // Recalculate streak based on updated completedDays
-      final newStreak = _calculateStreakFromCompletedDays(updatedCompletedDays, windowStart, today);
-      
-      // Update lastActivityDate only if this is the first activity today
-      DateTime newLastActivityDate = today;
-      bool newStreakFreezeActive = data.streakFreezeActive;
-      
-      // Check if any activity was completed yesterday for streak continuation logic
-      final lastActivity = data.lastActivityDate;
-      if (lastActivity != null) {
-        final lastActivityDate = DateTime(lastActivity.year, lastActivity.month, lastActivity.day);
-        final difference = today.difference(lastActivityDate).inDays;
-        
-        // Handle streak freeze logic
-        if (difference > 1) {
-          if (data.streakFreezeActive && difference == 2) {
-            newStreakFreezeActive = false; // Consume the streak freeze
-          }
-        }
+      final existing = GamificationData.fromFirestore(snapshot.data()!);
+      final days = <String, Map<String, bool>>{};
+      for (final entry in existing.days.entries) {
+        days[entry.key] = Map<String, bool>.from(entry.value);
       }
 
+      final currentDayActivities = Map<String, bool>.from(days[todayKey] ?? const {});
+      if (currentDayActivities[activityType] == true) {
+        debugPrint('⚠️ Activity "$activityType" already recorded for $todayKey');
+        return;
+      }
+
+      currentDayActivities[activityType] = true;
+      days[todayKey] = currentDayActivities;
+
+      final newStreak = GamificationData.computeCurrentStreak(days, today);
       final updatedData = GamificationData(
         streak: newStreak,
-        lastActivityDate: newLastActivityDate,
-        streakFreezeActive: newStreakFreezeActive,
-        completedDays: updatedCompletedDays,
-        rollingWindowStart: data.rollingWindowStart,
-        activityCompletions: updatedActivityCompletions,
+        days: days,
       );
-      
-      transaction.update(docRef, updatedData.toFirestore());
-      debugPrint('✅ Recorded activity "$activityType" for today. New streak: $newStreak');
-    });
-  }
 
-  /// Updates activity completions map with a new activity for today
-  Map<String, List<bool>> _updateActivityCompletions(
-    Map<String, List<bool>> currentCompletions,
-    String activityType,
-    DateTime windowStart,
-    DateTime today,
-  ) {
-    final windowStartNormalized = DateTime(windowStart.year, windowStart.month, windowStart.day);
-    final todayNormalized = DateTime(today.year, today.month, today.day);
-    final daysSinceWindowStart = todayNormalized.difference(windowStartNormalized).inDays;
-    
-    // Create a copy of the current completions
-    final updatedCompletions = Map<String, List<bool>>.from(currentCompletions);
-    
-    // Get or create the activity array for this type
-    List<bool> activityArray = updatedCompletions.containsKey(activityType)
-        ? List<bool>.from(updatedCompletions[activityType]!)
-        : List<bool>.filled(7, false);
-    
-    // Handle window shifting if needed
-    if (daysSinceWindowStart > 6) {
-      // Window needs to shift - shift all activity arrays
-      final shiftAmount = daysSinceWindowStart - 6;
-      final newCompletions = <String, List<bool>>{};
-      
-      for (final entry in updatedCompletions.entries) {
-        final newArray = List<bool>.filled(7, false);
-        for (int i = 0; i < 7; i++) {
-          final oldIndex = i + shiftAmount;
-          if (oldIndex >= 0 && oldIndex < entry.value.length) {
-            newArray[i] = entry.value[oldIndex];
-          }
-        }
-        newCompletions[entry.key] = newArray;
-      }
-      
-      // Update the current activity array
-      activityArray = newCompletions.containsKey(activityType)
-          ? List<bool>.from(newCompletions[activityType]!)
-          : List<bool>.filled(7, false);
-      activityArray[6] = true; // Mark today
-      newCompletions[activityType] = activityArray;
-      
-      return newCompletions;
-    } else if (daysSinceWindowStart >= 0 && daysSinceWindowStart < 7) {
-      // Mark the activity for today
-      activityArray[daysSinceWindowStart] = true;
-      updatedCompletions[activityType] = activityArray;
-      return updatedCompletions;
-    }
-    
-    return updatedCompletions;
-  }
-  
-  /// Calculates streak from completedDays array
-  /// Counts consecutive days ending with today (if completed) or yesterday (if today not completed)
-  int _calculateStreakFromCompletedDays(List<bool> completedDays, DateTime windowStart, DateTime today) {
-    final todayNormalized = DateTime(today.year, today.month, today.day);
-    final windowStartNormalized = DateTime(windowStart.year, windowStart.month, windowStart.day);
-    final todayIndex = todayNormalized.difference(windowStartNormalized).inDays;
-    
-    // If today is not in the window, streak is 0
-    if (todayIndex < 0 || todayIndex >= completedDays.length) {
-      return 0;
-    }
-    
-    // Determine starting point: today if completed, otherwise yesterday
-    int startIndex = todayIndex;
-    if (!completedDays[todayIndex]) {
-      // Today not completed, check yesterday
-      if (todayIndex == 0) {
-        return 0; // No previous days in window
-      }
-      startIndex = todayIndex - 1;
-      if (!completedDays[startIndex]) {
-        return 0; // Yesterday also not completed, streak is broken
-      }
-    }
-    
-    // Count consecutive days from startIndex backwards
-    int streak = 0;
-    for (int i = startIndex; i >= 0; i--) {
-      if (completedDays[i]) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-    
-    return streak;
-  }
-
-  /// Legacy method for backward compatibility
-  List<bool> _getUpdatedCompletedDays(List<bool> currentDays, int currentWeekday) {
-    final updatedDays = List<bool>.from(currentDays);
-    // In Dart, Monday is 1 and Sunday is 7. We map this to our 0-indexed list where Monday is 0.
-    int dayIndex = (currentWeekday - 1) % 7;
-    updatedDays[dayIndex] = true;
-    return updatedDays;
-  }
-
-  Future<void> useStreakFreeze() async {
-    final user = _auth.currentUser;
-    if (user == null) throw Exception('User not logged in');
-    final docRef = _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('gamification')
-        .doc('data');
-    await docRef.update({'streakFreezeActive': true});
-  }
-
-  /// Manually migrate data from old weekday format to new sequential rolling array
-  Future<void> migrateDataToSequentialArray() async {
-    final user = _auth.currentUser;
-    if (user == null) throw Exception('User not logged in');
-
-    final docRef = _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('gamification')
-        .doc('data');
-
-    await _firestore.runTransaction((transaction) async {
-      final snapshot = await transaction.get(docRef);
-      if (!snapshot.exists) return;
-
-      final data = GamificationData.fromFirestore(snapshot.data()!);
-      
-      // Only migrate if not already migrated
-      if (data.rollingWindowStart == null) {
-        print('🔄 Migrating data to sequential rolling array...');
-        final migratedData = data.migrateToRollingArray();
-        transaction.update(docRef, migratedData.toFirestore());
-        print('✅ Migration completed!');
-      } else {
-        print('ℹ️ Data already migrated to sequential format');
-      }
+      transaction.set(docRef, updatedData.toFirestore());
+      debugPrint('✅ Recorded activity "$activityType" for $todayKey. New streak: $newStreak');
     });
   }
 
@@ -416,66 +229,53 @@ class GamificationRepository {
 
     await _firestore.runTransaction((transaction) async {
       final snapshot = await transaction.get(docRef);
-      if (!snapshot.exists) return;
+      if (!snapshot.exists || snapshot.data() == null) return;
 
-      var data = GamificationData.fromFirestore(snapshot.data()!);
-      
-      // Migrate old data if needed
-      if (data.rollingWindowStart == null) {
-        data = data.migrateToRollingArray();
-      }
-      if (data.activityCompletions.isEmpty && data.completedDays.any((d) => d)) {
-        data = data.migrateToActivityTracking();
-      }
-      
+      final existing = GamificationData.fromFirestore(snapshot.data()!);
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
-      final windowStart = DateTime(data.rollingWindowStart!.year, data.rollingWindowStart!.month, data.rollingWindowStart!.day);
-      final daysSinceStart = today.difference(windowStart).inDays;
-      
-      // Remove the specific activity from today
-      final updatedActivityCompletions = Map<String, List<bool>>.from(data.activityCompletions);
-      
-      if (daysSinceStart >= 0 && daysSinceStart < 7) {
-        if (updatedActivityCompletions.containsKey(activityType)) {
-          final activityArray = List<bool>.from(updatedActivityCompletions[activityType]!);
-          activityArray[daysSinceStart] = false;
-          updatedActivityCompletions[activityType] = activityArray;
-          debugPrint('🔄 Unmarked activity "$activityType" for today (index $daysSinceStart)');
-        }
-      }
-      
-      // Recalculate completedDays from remaining activities
-      final updatedCompletedDays = GamificationData.deriveCompletedDays(updatedActivityCompletions);
-      
-      // Recalculate streak based on actual completedDays
-      final newStreak = _calculateStreakFromCompletedDays(updatedCompletedDays, windowStart, today);
-      
-      // Update lastActivityDate based on recalculated data
-      DateTime? newLastActivityDate = data.lastActivityDate;
-      if (newStreak == 0) {
-        // No activities today, check if there are activities yesterday
-        if (daysSinceStart > 0 && updatedCompletedDays[daysSinceStart - 1]) {
-          newLastActivityDate = today.subtract(const Duration(days: 1));
-        } else {
-          newLastActivityDate = null;
-        }
-      } else {
-        // Still have activities today, keep lastActivityDate as today
-        newLastActivityDate = today;
+      final todayKey = GamificationData.dateKeyFromDate(today);
+
+      final days = <String, Map<String, bool>>{};
+      for (final entry in existing.days.entries) {
+        days[entry.key] = Map<String, bool>.from(entry.value);
       }
 
+      if (!days.containsKey(todayKey)) {
+        debugPrint('ℹ️ No activities recorded for $todayKey, nothing to undo for $activityType');
+        return;
+      }
+
+      final currentDayActivities = Map<String, bool>.from(days[todayKey]!);
+      if (!currentDayActivities.containsKey(activityType) || currentDayActivities[activityType] != true) {
+        debugPrint('ℹ️ Activity "$activityType" not recorded as completed for $todayKey, nothing to undo');
+        return;
+      }
+
+      currentDayActivities[activityType] = false;
+
+      bool anyStreakActivityLeft = false;
+      for (final entry in currentDayActivities.entries) {
+        if (GamificationData.streakActivityTypes.contains(entry.key) && entry.value == true) {
+          anyStreakActivityLeft = true;
+          break;
+        }
+      }
+
+      if (anyStreakActivityLeft) {
+        days[todayKey] = currentDayActivities;
+      } else {
+        days.remove(todayKey);
+      }
+
+      final newStreak = GamificationData.computeCurrentStreak(days, today);
       final updatedData = GamificationData(
         streak: newStreak,
-        lastActivityDate: newLastActivityDate,
-        streakFreezeActive: data.streakFreezeActive,
-        completedDays: updatedCompletedDays,
-        rollingWindowStart: data.rollingWindowStart,
-        activityCompletions: updatedActivityCompletions,
+        days: days,
       );
-      
-      transaction.update(docRef, updatedData.toFirestore());
-      debugPrint('✅ Activity "$activityType" removed. New streak: $newStreak');
+
+      transaction.set(docRef, updatedData.toFirestore());
+      debugPrint('✅ Activity "$activityType" removed for $todayKey. New streak: $newStreak');
     });
   }
   
@@ -551,77 +351,7 @@ final gamificationRepoProvider = Provider((ref) => GamificationRepository());
 // Optimized provider with local state caching for instant UI updates
 final gamificationProvider = StreamProvider.autoDispose<GamificationData>((ref) {
   final repo = ref.watch(gamificationRepoProvider);
-  return repo.getGamificationData().asyncMap((data) async {
-    // Auto-migrate data in the stream to avoid blocking UI
-    var migratedData = data;
-    if (migratedData.rollingWindowStart == null) {
-      migratedData = migratedData.migrateToRollingArray();
-    }
-    // Migrate to activity tracking if needed
-    if (migratedData.activityCompletions.isEmpty && migratedData.completedDays.any((d) => d)) {
-      migratedData = migratedData.migrateToActivityTracking();
-    }
-    data = migratedData;
-    
-    // Check if rolling window needs to be updated for current day
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final windowStart = DateTime(data.rollingWindowStart!.year, data.rollingWindowStart!.month, data.rollingWindowStart!.day);
-    final daysSinceWindowStart = today.difference(windowStart).inDays;
-    
-    // If today is beyond the current window (> 6 days), update the window
-    if (daysSinceWindowStart > 6) {
-      print('🔄 Auto-updating rolling window: daysSinceStart = $daysSinceWindowStart');
-      
-      // Calculate new window start (6 days ago from today)
-      final newWindowStart = today.subtract(const Duration(days: 6));
-      
-      // Shift the data to the new window
-      final newDays = List<bool>.filled(7, false);
-      final shiftAmount = daysSinceWindowStart - 6;
-      
-      for (int i = 0; i < 7; i++) {
-        final oldIndex = i + shiftAmount;
-        if (oldIndex >= 0 && oldIndex < data.completedDays.length) {
-          newDays[i] = data.completedDays[oldIndex];
-        }
-      }
-      
-      // Update the window in Firestore
-      await repo._updateRollingWindow(newWindowStart, newDays);
-      
-      // Recalculate streak based on new window data
-      final recalculatedStreak = repo._calculateCurrentStreak(newDays, newWindowStart, today);
-      
-      // Return updated data
-      return GamificationData(
-        streak: recalculatedStreak,
-        lastActivityDate: data.lastActivityDate,
-        streakFreezeActive: data.streakFreezeActive,
-        completedDays: newDays,
-        rollingWindowStart: newWindowStart,
-        activityCompletions: data.activityCompletions,
-      );
-    }
-    
-    // Always recalculate streak based on current window data for accuracy
-    final currentStreak = repo._calculateCurrentStreak(data.completedDays, data.rollingWindowStart!, today);
-    
-    // Return data with recalculated streak if it differs
-    if (currentStreak != data.streak) {
-      print('🔄 Recalculating streak: ${data.streak} → $currentStreak');
-      return GamificationData(
-        streak: currentStreak,
-        lastActivityDate: data.lastActivityDate,
-        streakFreezeActive: data.streakFreezeActive,
-        completedDays: data.completedDays,
-        rollingWindowStart: data.rollingWindowStart,
-        activityCompletions: data.activityCompletions,
-      );
-    }
-    
-    return data;
-  });
+  return repo.getGamificationData();
 });
 
 final questsProvider = StreamProvider.autoDispose<List<Quest>>((ref) {
