@@ -297,60 +297,63 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
         Positioned.fill(
           child: Align(
             alignment: Alignment.bottomCenter,
-            child: AnimatedBuilder(
-              animation: _animation,
-              builder: (context, child) {
-                final endWidth = MediaQuery.of(context).size.width;
-                final endHeight = 280.0;
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: AnimatedBuilder(
+                animation: _animation,
+                builder: (context, child) {
+                  final endWidth = MediaQuery.of(context).size.width;
+                  final endHeight = 280.0;
 
-                final width = isCompleted
-                    ? endWidth
-                    : lerpDouble(MediaQuery.of(context).size.width - 80,
-                        endWidth, _animation.value)!;
-                final height = isCompleted
-                    ? endHeight
-                    : lerpDouble(50, endHeight, _animation.value)!;
-                final radius = lerpDouble(30, 20, _animation.value)!;
+                  final width = isCompleted
+                      ? endWidth
+                      : lerpDouble(MediaQuery.of(context).size.width - 80,
+                          endWidth, _animation.value)!;
+                  final height = isCompleted
+                      ? endHeight
+                      : lerpDouble(50, endHeight, _animation.value)!;
+                  final radius = lerpDouble(30, 20, _animation.value)!;
 
-                return GestureDetector(
-                  onTapDown: isCompleted
-                      ? null
-                      : (_) {
-                          _controller.forward();
-                          Vibration.vibrate(duration: 1000, amplitude: 128);
-                        },
-                  onTapUp: isCompleted
-                      ? null
-                      : (_) {
-                          if (_controller.status != AnimationStatus.completed) {
-                            _controller.reverse();
-                            Vibration.cancel();
-                          }
-                        },
-                  child: Container(
-                    width: width,
-                    height: height,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryButtonColor,
-                      borderRadius: BorderRadius.circular(radius),
+                  return GestureDetector(
+                    onTapDown: isCompleted
+                        ? null
+                        : (_) {
+                            _controller.forward();
+                            Vibration.vibrate(duration: 1000, amplitude: 128);
+                          },
+                    onTapUp: isCompleted
+                        ? null
+                        : (_) {
+                            if (_controller.status != AnimationStatus.completed) {
+                              _controller.reverse();
+                              Vibration.cancel();
+                            }
+                          },
+                    child: Container(
+                      width: width,
+                      height: height,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryButtonColor,
+                        borderRadius: BorderRadius.circular(radius),
+                      ),
+                      alignment: Alignment.center,
+                      child: isCompleted
+                          ? _buildCompletedView()
+                          : Text(
+                              'PRESS AND HOLD TO MARK AS COMPLETED',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                              textAlign: TextAlign.center,
+                            ),
                     ),
-                    alignment: Alignment.center,
-                    child: isCompleted
-                        ? _buildCompletedView()
-                        : Text(
-                            'PRESS AND HOLD TO MARK AS COMPLETED',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelMedium
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                            textAlign: TextAlign.center,
-                          ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -638,8 +641,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
           color: isCompleted 
               ? (isPartOfStreak 
                   ? Colors.transparent 
-                  : AppTheme.accentColor.withOpacity(0.8))
-              : Colors.grey.shade300,
+                  : AppTheme.accentColor)
+              : AppTheme.oppositeLightColor,
         ),
         child: isCompleted
             ? Icon(
