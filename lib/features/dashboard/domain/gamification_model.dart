@@ -150,12 +150,19 @@ class GamificationData {
     DateTime today,
   ) {
     final todayNormalized = DateTime(today.year, today.month, today.day);
-    if (!_isAnyCompletedOnDate(days, todayNormalized)) {
+    final yesterday = todayNormalized.subtract(const Duration(days: 1));
+
+    DateTime? anchor;
+    if (_isAnyCompletedOnDate(days, todayNormalized)) {
+      anchor = todayNormalized;
+    } else if (_isAnyCompletedOnDate(days, yesterday)) {
+      anchor = yesterday;
+    } else {
       return 0;
     }
 
     int streak = 0;
-    var cursor = todayNormalized;
+    var cursor = anchor;
 
     while (_isAnyCompletedOnDate(days, cursor)) {
       streak++;
