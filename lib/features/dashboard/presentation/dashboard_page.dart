@@ -126,10 +126,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
       data: (user) => SafeArea(
         child: ListView(
           clipBehavior: Clip.none,
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
           children: [
             _buildHeader(context, user.displayName),
-            const SizedBox(height: 30),
+            const SizedBox(height: 20),
             _buildGamificationArea(context),
             const SizedBox(height: 20),
             _buildTodaysConnectionPrompt(context),
@@ -149,7 +149,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     return Row(
       children: [
         Text(
-          'Hello, $displayName.',
+          'Welcome, $displayName.',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: AppTheme.primaryTextColor,
                 fontWeight: FontWeight.bold,
@@ -203,7 +203,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                     Icon(Icons.local_fire_department, color: AppTheme.primaryTextColor, size: 32),
                     const SizedBox(width: 8),
                     Text(
-                      '${gamificationData.streak} day streak!',
+                      '${gamificationData.streak} day streak',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ],
@@ -525,7 +525,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                         width: segmentWidth - (dayWidth - 36), // Span to center of last day
                         height: 36,
                         decoration: BoxDecoration(
-                          color: AppTheme.accentColor.withOpacity(0.8),
+                          color: AppTheme.accentColor,
                           borderRadius: BorderRadius.circular(18),
                         ),
                       ),

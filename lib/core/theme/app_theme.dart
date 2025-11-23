@@ -5,13 +5,13 @@ class AppTheme {
   // Define color constants
   static const Color primaryBackgroundColor = Color(0xffefedec); // Light beige for header/footer
   static const Color scaffoldBackgroundColor = Color(0xffFFFFFF); // White for main content
-  static const Color primaryTextColor = Color(0xFF3B3B3B);
+  static const Color primaryTextColor = primaryColor;
   static const Color primaryColor = Color(0xFF5F5F5E);
   static const Color accentColor = primaryColor;
   static const Color oppositeLightColor = Color(0xFFE0E0E0); // for fill circles of streak widget
   static const Color headerFooterColor = Color(0xffFFFFFF); // Same as primaryBackgroundColor for clarity
 
-    static const Color primaryButtonColor = primaryColor;
+  static const Color primaryButtonColor = primaryColor;
 
   static ThemeData get lightTheme {
     return ThemeData(
