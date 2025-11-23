@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/router/routes.dart';
 import '../../auth/data/auth_repository.dart';
-import 'widgets/profile_header.dart';
 import 'widgets/profile_menu_item.dart';
+import 'widgets/hero_menu_item.dart';
 import 'edit_profile_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -14,26 +14,23 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  String userName = "Nicole DLP"; // Initial user name
 
   @override
   Widget build(BuildContext context) {
     return Container(
       child: ListView(
         children: [
-          const SizedBox(height: 20),
-          ProfileHeader(name: userName),
-          const SizedBox(height: 40),
+          const SizedBox(height: 60),
+          HeroMenuItem(
+            title: 'Premium Membership',
+            subtitle: 'Unlock full features',
+            onTap: () {},
+          ),
           ProfileMenuItem(
             title: 'Edit Profile',
             icon: Icons.person_outline,
-            onTap: () async {
-              final newName = await context.push(AppRoutes.editProfile, extra: userName);
-              if (newName != null && newName is String) {
-                setState(() {
-                  userName = newName;
-                });
-              }
+            onTap: () {
+              context.push(AppRoutes.editProfile);
             },
           ),
           ProfileMenuItem(
