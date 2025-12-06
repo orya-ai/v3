@@ -104,14 +104,18 @@ class GamificationData {
       });
     }
 
-    final storedStreak = data['streak'];
-    int streak = 0;
-    if (parsedDays.isNotEmpty && storedStreak is int) {
-      streak = storedStreak;
+    // Always derive the current streak from the recorded days and today's date
+    // instead of trusting a potentially stale "streak" field from Firestore.
+    // This ensures that if there has been a gap of more than one day with no
+    // activity, the streak correctly resets to 0 when data is loaded.
+    int computedStreak = 0;
+    if (parsedDays.isNotEmpty) {
+      final now = DateTime.now();
+      computedStreak = GamificationData.computeCurrentStreak(parsedDays, now);
     }
 
     return GamificationData(
-      streak: streak,
+      streak: computedStreak,
       days: parsedDays,
     );
   }

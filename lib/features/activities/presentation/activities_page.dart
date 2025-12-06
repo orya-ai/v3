@@ -10,7 +10,7 @@ class ActivitiesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
         children: [
           Center(
             child: Text(
@@ -24,6 +24,7 @@ class ActivitiesPage extends StatelessWidget {
           GestureDetector(
             onTap: () => context.push(AppRoutes.conversationCards),
             child: Card(
+              margin: EdgeInsets.zero,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               color: AppTheme.primaryBackgroundColor,
               elevation: 0,

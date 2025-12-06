@@ -12,42 +12,50 @@ class TermsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-
         // ✅ Custom AppBar replacement (no nested Scaffold)
         Container(
           color: AppTheme.scaffoldBackgroundColor,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
           child: SafeArea(
             bottom: false,
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(
-                    Icons.arrow_back,
-                    color: AppTheme.primaryTextColor,
+            child: SizedBox(
+              height: kToolbarHeight,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: AppTheme.primaryTextColor,
+                      ),
+                      onPressed: () => GoRouter.of(context).pop(),
+                    ),
                   ),
-                  onPressed: () => GoRouter.of(context).pop(),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Terms & Conditions',
-                  style: TextStyle(
-                    color: AppTheme.primaryTextColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                  const Center(
+                    child: Text(
+                      'Terms & Conditions',
+                      style: TextStyle(
+                        color: AppTheme.primaryTextColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-
-        const Divider(height: 1),
-
-        const Expanded(
-          child: WebViewBasePage(
-            title: "Terms & Conditions",
-            url: "https://orya.io/terms",
+        Expanded(
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: const WebViewBasePage(
+              title: "Terms & Conditions",
+              url: "https://www.orya.io/termsandconditions",
+            ),
           ),
         ),
       ],

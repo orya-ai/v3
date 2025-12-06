@@ -17,10 +17,10 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SafeArea(
       child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
         children: [
-          const SizedBox(height: 60),
           HeroMenuItem(
             title: 'Premium Membership',
             subtitle: 'Unlock full features',
